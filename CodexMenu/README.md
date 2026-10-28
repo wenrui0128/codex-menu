@@ -41,7 +41,7 @@
 
 ## 构建与检查
 
-需要 macOS 13+ 和包含 Swift 的 Xcode / Command Line Tools。本次构建为 Apple Silicon 本机版本，签名为本地 ad-hoc 签名。
+需要 macOS 13+ 和包含 Swift 的 Xcode / Command Line Tools。默认构建当前机器架构；GitHub 发布附件为同时包含 Apple Silicon 与 Intel 的 Universal 2 版本，签名为本地 ad-hoc 签名。下载及命令行安装见[仓库首页](../README.md)。
 
 ```sh
 zsh scripts/build.sh
