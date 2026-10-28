@@ -30,10 +30,13 @@ if arguments.contains("--snapshot") {
         exit(1)
     }
 } else if let path = argument(after: "--render-preview") {
-    do { try renderMenuPreview(to: path, dark: arguments.contains("--dark"), largeFont: arguments.contains("--large-font")) }
+    do { try renderMenuPreview(to: path, dark: arguments.contains("--dark"), largeFont: arguments.contains("--large-font"),
+                              theme: argument(after: "--theme").flatMap(MenuTheme.init(rawValue:)) ?? .system,
+                              customColors: arguments.contains("--custom-colors")) }
     catch { fputs("Codex Menu: \(error.localizedDescription)\n", stderr); exit(1) }
 } else if let path = argument(after: "--render-settings-preview") {
-    do { try renderSettingsPreview(to: path, dark: arguments.contains("--dark"), largeFont: arguments.contains("--large-font")) }
+    do { try renderSettingsPreview(to: path, dark: arguments.contains("--dark"), largeFont: arguments.contains("--large-font"),
+                                  customColors: arguments.contains("--custom-colors")) }
     catch { fputs("Codex Menu: \(error.localizedDescription)\n", stderr); exit(1) }
 } else {
     let app = NSApplication.shared

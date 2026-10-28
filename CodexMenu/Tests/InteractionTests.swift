@@ -236,13 +236,18 @@ final class InteractionTests: XCTestCase {
         control.performClick(nil)
         XCTAssertEqual(showAll, 1)
         group.update([], width: 180, preferences: preferences, hiddenCount: 5, readError: nil)
-        XCTAssertEqual(group.control.statusItem.length, StatusItemLayout.controlWidth)
+        XCTAssertEqual(group.control.statusItem.length, StatusItemLayout.controlWidth(hiddenCount: 5))
         XCTAssertTrue(group.items.isEmpty)
         XCTAssertTrue(group.orderedItems.isEmpty)
         XCTAssertEqual(control.title, "+5")
         control.performClick(nil)
         XCTAssertEqual(showAll, 2, "All sessions must stay accessible when none fit as cards")
         XCTAssertEqual(opened, [second, first])
+        let expandedWidth = group.control.statusItem.length
+        group.update(sessions, width: 180, preferences: preferences, hiddenCount: 0, readError: nil)
+        XCTAssertEqual(group.control.statusItem.length, StatusItemLayout.controlWidth)
+        XCTAssertLessThan(group.control.statusItem.length, expandedWidth, "Removing the overflow count must also remove its empty space")
+        XCTAssertEqual(control.title, "")
     }
 
     func testIndependentItemLayoutRespectsTheSpaceBudget() {
@@ -252,7 +257,7 @@ final class InteractionTests: XCTestCase {
             preferences.maxVisible = 6
             for budget in [44.0, 180, 240, 528, 900] {
                 let layout = StatusItemLayout(sessions: 9, preferences: preferences, budget: budget)
-                let occupied = CGFloat(layout.visibleCount) * (layout.cardWidth + StatusItemLayout.spacing) + StatusItemLayout.controlWidth
+                let occupied = CGFloat(layout.visibleCount) * (layout.cardWidth + StatusItemLayout.spacing) + layout.entryWidth
                 XCTAssertLessThanOrEqual(occupied, budget)
                 XCTAssertLessThanOrEqual(layout.visibleCount, preferences.maxVisible)
                 XCTAssertEqual(layout.cardWidth, width)

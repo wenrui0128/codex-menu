@@ -3,6 +3,14 @@ import SwiftUI
 import ServiceManagement
 
 extension MenuTheme {
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+
     var appearance: NSAppearance? {
         switch self {
         case .system: return nil
@@ -22,6 +30,18 @@ final class PreferencesModel: ObservableObject {
         Binding(get: { self.preferences[keyPath: keyPath] }, set: {
             var next = self.preferences
             next[keyPath: keyPath] = $0
+            self.replace(next)
+        })
+    }
+
+    func colorBinding(_ keyPath: WritableKeyPath<MenuPreferences, UInt32>) -> Binding<Color> {
+        Binding(get: { Color(nsColor: MenuPalette.color(self.preferences[keyPath: keyPath])) }, set: {
+            guard let color = NSColor($0).usingColorSpace(.sRGB) else { return }
+            var next = self.preferences
+            let red = UInt32((min(1, max(0, color.redComponent)) * 255).rounded())
+            let green = UInt32((min(1, max(0, color.greenComponent)) * 255).rounded())
+            let blue = UInt32((min(1, max(0, color.blueComponent)) * 255).rounded())
+            next[keyPath: keyPath] = red << 16 | green << 8 | blue
             self.replace(next)
         })
     }
@@ -69,7 +89,6 @@ private struct BadgePreview: NSViewRepresentable {
         view.apply(preferences)
         // A stable preview makes font and width changes easy to compare.
         view.scrolling = false
-        view.lamp.update(.running, motionAllowed: preferences.animateLamps)
     }
 
     private var sample: Session {
@@ -83,6 +102,13 @@ struct MenuSettingsView: View {
     @ObservedObject var login: LoginItemModel
     var onDone: () -> Void
     @State private var selectedTab = 0
+
+    init(model: PreferencesModel, login: LoginItemModel, onDone: @escaping () -> Void, initialTab: Int = 0) {
+        self.model = model
+        self.login = login
+        self.onDone = onDone
+        _selectedTab = State(initialValue: initialTab)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -112,7 +138,8 @@ struct MenuSettingsView: View {
 
             HStack(spacing: 2) {
                 tabButton("显示", index: 0)
-                tabButton("交互与启动", index: 1)
+                tabButton("颜色与外观", index: 1)
+                tabButton("交互与启动", index: 2)
             }
             .padding(3)
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
@@ -120,6 +147,7 @@ struct MenuSettingsView: View {
 
             Group {
                 if selectedTab == 0 { displayTab }
+                else if selectedTab == 1 { appearanceTab }
                 else { behaviorTab }
             }
             .frame(maxHeight: .infinity)
@@ -138,6 +166,7 @@ struct MenuSettingsView: View {
         }
         .frame(width: 560, height: 720)
         .background(Color(nsColor: .windowBackgroundColor))
+        .preferredColorScheme(model.preferences.theme.colorScheme)
     }
 
     private func tabButton(_ title: String, index: Int) -> some View {
@@ -157,21 +186,25 @@ struct MenuSettingsView: View {
         .accessibilityAddTraits(selectedTab == index ? .isSelected : [])
     }
 
+    private var badgePreview: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("菜单栏预览").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            HStack {
+                Spacer(minLength: 0)
+                BadgePreview(preferences: model.preferences)
+                    .frame(width: model.preferences.cardWidth, height: 28)
+                    .accessibilityLabel("运行中的示例会话，仅用于预览")
+                Spacer(minLength: 0)
+            }
+            .frame(height: 44)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        }
+        .padding(.horizontal, 16).padding(.top, 16)
+    }
+
     private var displayTab: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("菜单栏预览").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
-                HStack {
-                    Spacer(minLength: 0)
-                    BadgePreview(preferences: model.preferences)
-                        .frame(width: model.preferences.cardWidth, height: 28)
-                        .accessibilityLabel("运行中的示例会话，仅用于预览")
-                    Spacer(minLength: 0)
-                }
-                .frame(height: 44)
-                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-            }
-            .padding(.horizontal, 16).padding(.top, 16)
+            badgePreview
 
             Form {
                 Section("文字") {
@@ -180,16 +213,41 @@ struct MenuSettingsView: View {
                     Text("会话列表与进度卡片随字号调整布局。菜单栏高度由 macOS 决定。")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                 }
-                Section("布局与外观") {
+                Section("布局") {
                     valueSlider("每个会话宽度", value: model.binding(\.cardWidth), range: 180...480, step: 20, suffix: " pt")
                     Stepper(value: model.binding(\.maxVisible), in: 1...6) {
                         HStack { Text("最多展开会话"); Spacer(); Text("\(model.preferences.maxVisible) 条").monospacedDigit().foregroundStyle(.secondary) }
                     }
+                    Text("菜单栏空间不足时，其余会话仍可从总入口打开。")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+            }
+            .formStyle(.grouped)
+        }
+    }
+
+    private var appearanceTab: some View {
+        VStack(spacing: 0) {
+            badgePreview
+            Form {
+                Section("外观") {
                     Picker("外观", selection: model.binding(\.theme)) {
                         ForEach(MenuTheme.allCases) { Text($0.label).tag($0) }
                     }
-                    Text("菜单栏空间不足时，其余会话仍可从总入口打开。")
+                    Text("跟随系统时使用透明底色，文字随菜单栏明暗调整；浅色和深色使用对应底色。")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                Section("菜单栏颜色") {
+                    Toggle("自定义菜单栏颜色", isOn: model.binding(\.customColors))
+                    if model.preferences.customColors {
+                        ColorPicker("底色", selection: model.colorBinding(\.backgroundHex), supportsOpacity: false)
+                        ColorPicker("文字颜色", selection: model.colorBinding(\.textHex), supportsOpacity: false)
+                        valueSlider("底色不透明度", value: Binding(get: { model.preferences.backgroundOpacity * 100 }, set: {
+                            model.binding(\.backgroundOpacity).wrappedValue = $0 / 100
+                        }), range: 0...100, step: 5, suffix: "%")
+                        Text("仅调整菜单栏条目，状态光环保留黄、红、绿三色。")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
                 }
             }
             .formStyle(.grouped)
@@ -208,9 +266,11 @@ struct MenuSettingsView: View {
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
             Section("状态灯") {
-                Toggle("柔和闪烁运行与完成状态灯", isOn: model.binding(\.animateLamps))
-                Text("运行：黄灯闪烁　完成：绿灯闪烁\n错误：红灯常亮　等待：黄灯常亮")
+                Toggle("会话边框呼吸光", isOn: model.binding(\.animateLamps))
+                Text("运行：黄色呼吸光　完成：绿色呼吸光\n错误：红色常亮　等待：黄色常亮")
                     .font(.system(size: 12)).lineSpacing(4).foregroundStyle(.secondary)
+                Text("光环沿整个会话条目显示，左侧圆点保留状态颜色。")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
                 Text("系统开启“减少动态效果”时，文字和状态灯均保持静止。")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
@@ -263,6 +323,7 @@ final class SettingsWindowController: NSWindowController {
 
     func show(preferences: MenuPreferences, onChange: @escaping (MenuPreferences) -> Void) {
         model.replace(preferences, notify: false)
+        window?.appearance = preferences.theme.appearance
         model.onChange = onChange
         login.refresh()
         NSApp.activate(ignoringOtherApps: true)

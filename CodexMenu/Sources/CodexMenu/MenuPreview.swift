@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 /// Uses production views and isolated sample data; does not capture the screen.
-func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false) throws {
+func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false,
+                       theme: MenuTheme = .system, customColors: Bool = false) throws {
     let app = NSApplication.shared
     app.setActivationPolicy(.prohibited)
     let canvas = NSView(frame: NSRect(x: 0, y: 0, width: 1080, height: 630))
@@ -19,15 +20,18 @@ func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false) thr
         canvas.addSubview(field)
     }
     label("Codex Menu", x: 32, y: 560, size: 26, weight: .semibold)
-    label("每个会话一个独立图标 · 原生菜单栏按钮 · 保留原有状态灯", x: 32, y: 532, size: 14, secondary: true)
+    label("独立会话图标 · 透明底色 · 环绕状态光", x: 32, y: 532, size: 14, secondary: true)
     var preferences = MenuPreferences()
+    preferences.theme = theme
+    preferences.customColors = customColors
     if largeFont { preferences.menuFontSize = 15; preferences.detailFontSize = 20 }
     let bar = NSView(frame: NSRect(x: 32, y: 458, width: 1016, height: 42))
     bar.wantsLayer = true
     bar.layer?.cornerRadius = 10
     bar.layer?.backgroundColor = MenuPalette.color(dark ? 0x34383F : 0xE1E5EB).cgColor
     canvas.addSubview(bar)
-    let entry = NSImageView(frame: NSRect(x: 8, y: 11, width: 20, height: 20))
+    let entryWidth = StatusItemLayout.controlWidth
+    let entry = NSImageView(frame: NSRect(x: 8 + (entryWidth - 20) / 2, y: 11, width: 20, height: 20))
     entry.image = AppArtwork.controlIcon(hasReadError: false)
     bar.addSubview(entry)
     var samples = exampleSessions()
@@ -39,11 +43,11 @@ func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false) thr
     for (index, session) in samples.enumerated() {
         let badge = SessionBadgeView(session: session, width: 310, height: 28)
         badge.apply(previewPreferences)
-        badge.frame.origin = NSPoint(x: 38 + CGFloat(index) * 318, y: 7)
+        badge.frame.origin = NSPoint(x: 8 + entryWidth + StatusItemLayout.spacing + CGFloat(index) * 318, y: 7)
         bar.addSubview(badge)
     }
     if !largeFont {
-        label("黄灯闪烁：运行中    红灯常亮：出错    绿灯闪烁：已完成", x: 32, y: 422, size: 12, secondary: true)
+        label("黄色呼吸：运行中    红色常亮：出错    绿色呼吸：已完成", x: 32, y: 422, size: 12, secondary: true)
     }
 
     let detail = SessionDetailViewController(session: samples[0])
@@ -62,7 +66,7 @@ func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false) thr
     label("右键查看、选取和复制最新公开进度。", x: 500, y: 226, size: 13, secondary: true)
     label("完成后保留，进入会话后只收起这一条。", x: 500, y: 196, size: 13, secondary: true)
     if !largeFont {
-        label("界面示意，使用示例会话 · 右键卡片可随进度更新 · 系统减少动态效果时状态灯保持常亮",
+        label("左键打开会话 · 右键查看完整进度 · 悬停暂停文字滚动",
               x: 32, y: 14, size: 11, secondary: true)
     }
     let window = NSWindow(contentRect: canvas.bounds, styleMask: [.borderless], backing: .buffered, defer: false)
@@ -78,16 +82,17 @@ func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false) thr
     withExtendedLifetime(detail) {}
 }
 
-func renderSettingsPreview(to path: String, dark: Bool, largeFont: Bool = false) throws {
+func renderSettingsPreview(to path: String, dark: Bool, largeFont: Bool = false, customColors: Bool = false) throws {
     let app = NSApplication.shared
     app.setActivationPolicy(.prohibited)
     app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     var preferences = MenuPreferences()
     preferences.theme = dark ? .dark : .light
+    preferences.customColors = customColors
     if largeFont { preferences.menuFontSize = 15; preferences.detailFontSize = 20 }
     let model = PreferencesModel(preferences)
     let login = LoginItemModel(preview: true)
-    let host = NSHostingController(rootView: MenuSettingsView(model: model, login: login, onDone: {}))
+    let host = NSHostingController(rootView: MenuSettingsView(model: model, login: login, onDone: {}, initialTab: customColors ? 1 : 0))
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 720),
                           styleMask: [.borderless], backing: .buffered, defer: false)
     window.contentViewController = host

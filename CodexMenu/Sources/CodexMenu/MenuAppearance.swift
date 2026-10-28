@@ -2,6 +2,13 @@ import AppKit
 import QuartzCore
 
 enum MenuPalette {
+    struct BadgeColors {
+        let background: NSColor
+        let foreground: NSColor
+        let secondary: NSColor
+        let border: NSColor
+    }
+
     static func color(_ hex: UInt32) -> NSColor {
         NSColor(srgbRed: CGFloat((hex >> 16) & 255) / 255,
                 green: CGFloat((hex >> 8) & 255) / 255,
@@ -14,6 +21,24 @@ enum MenuPalette {
     static func secondary(dark: Bool) -> NSColor { color(dark ? 0xD0D5DE : 0x555E6C) }
     static func border(dark: Bool) -> NSColor {
         dark ? NSColor.white.withAlphaComponent(0.13) : color(0xC9CFD8).withAlphaComponent(0.8)
+    }
+
+    static func badgeColors(preferences: MenuPreferences, appearance: NSAppearance) -> BadgeColors {
+        let dark: Bool
+        switch preferences.theme {
+        case .light: dark = false
+        case .dark: dark = true
+        case .system: dark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        }
+        if preferences.customColors {
+            let text = color(preferences.textHex)
+            return BadgeColors(background: color(preferences.backgroundHex).withAlphaComponent(preferences.backgroundOpacity),
+                               foreground: text, secondary: text, border: text.withAlphaComponent(0.14))
+        }
+        // Follow the actual menu bar material, including wallpaper-dependent contrast.
+        let background: NSColor = preferences.theme == .system ? .clear : surface(dark: dark).withAlphaComponent(0.94)
+        return BadgeColors(background: background, foreground: foreground(dark: dark),
+                           secondary: secondary(dark: dark), border: border(dark: dark))
     }
 
     static func lamp(for status: SessionStatus, dark: Bool) -> NSColor {
@@ -32,6 +57,87 @@ enum MenuPalette {
         default: return nil
         }
     }
+}
+
+/// A composited outline breathes around one native conversation button.
+/// It stays visible when text scrolling pauses and never takes mouse events.
+final class StatusOutlineView: NSView {
+    private let glow = CAShapeLayer()
+    private let stroke = CAShapeLayer()
+    private(set) var status: SessionStatus
+    private var pulsing = false
+
+    init(status: SessionStatus) {
+        self.status = status
+        super.init(frame: .zero)
+        wantsLayer = true
+        setAccessibilityElement(false)
+        for shape in [glow, stroke] {
+            shape.fillColor = NSColor.clear.cgColor
+            layer?.addSublayer(shape)
+        }
+        glow.lineWidth = 3.5
+        stroke.lineWidth = 1
+        update(status)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let path = CGPath(roundedRect: bounds.insetBy(dx: 2.25, dy: 2.75),
+                          cornerWidth: 5.5, cornerHeight: 5.5, transform: nil)
+        for shape in [glow, stroke] {
+            shape.frame = bounds
+            shape.path = path
+        }
+        CATransaction.commit()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshColors()
+    }
+
+    func update(_ value: SessionStatus, motionAllowed: Bool = true,
+                reduceMotion: Bool = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) {
+        let changed = status != value
+        status = value
+        refreshColors()
+        let shouldPulse = motionAllowed && !reduceMotion && MenuPalette.pulsePeriod(for: value) != nil
+        guard changed || shouldPulse != pulsing else { return }
+        pulsing = shouldPulse
+        stroke.removeAllAnimations()
+        glow.removeAllAnimations()
+        guard shouldPulse, let period = MenuPalette.pulsePeriod(for: value) else { return }
+        let pulse = CAKeyframeAnimation(keyPath: "opacity")
+        pulse.values = [0.9, 0.28, 0.9]
+        pulse.keyTimes = [0, 0.5, 1]
+        pulse.timingFunctions = [CAMediaTimingFunction(name: .easeInEaseOut), CAMediaTimingFunction(name: .easeInEaseOut)]
+        pulse.duration = period
+        pulse.repeatCount = .infinity
+        stroke.add(pulse, forKey: "statusPulse")
+        let halo = pulse.copy() as! CAKeyframeAnimation
+        halo.values = [0.2, 0.03, 0.2]
+        glow.add(halo, forKey: "statusPulse")
+    }
+
+    private func refreshColors() {
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let color = MenuPalette.lamp(for: status, dark: dark)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stroke.strokeColor = color.cgColor
+        glow.strokeColor = color.cgColor
+        stroke.opacity = status == .unknown ? 0.35 : 0.72
+        glow.opacity = 0.12
+        CATransaction.commit()
+    }
+
+    var isPulsing: Bool { stroke.animation(forKey: "statusPulse") != nil }
 }
 
 /// A separate composited lamp keeps pulsing even when the progress text is paused.

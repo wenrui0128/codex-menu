@@ -139,6 +139,7 @@ final class SessionDetailViewController: NSViewController {
     func apply(_ preferences: MenuPreferences) {
         self.preferences = preferences.normalized
         guard isViewLoaded else { return }
+        view.appearance = self.preferences.theme.appearance
         let body = CGFloat(self.preferences.detailFontSize)
         let meta = min(14, max(11, body - 2))
         statusLabel.font = .systemFont(ofSize: meta, weight: .medium)

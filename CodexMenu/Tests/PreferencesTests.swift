@@ -1,5 +1,6 @@
 import XCTest
 import AppKit
+import SwiftUI
 @testable import CodexMenu
 
 final class PreferencesTests: XCTestCase {
@@ -114,5 +115,65 @@ final class PreferencesTests: XCTestCase {
                                  "Long progress must wrap inside the visible scroll region at the largest font")
         XCTAssertFalse(detail.openButton.hasAmbiguousLayout)
         XCTAssertFalse(detail.view.hasAmbiguousLayout)
+    }
+
+    func testExplicitLightThemeOverridesADarkMenuBarAndSystemUsesTransparentFill() throws {
+        _ = NSApplication.shared
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 28))
+        host.appearance = NSAppearance(named: .darkAqua)
+        let badge = SessionBadgeView(session: exampleSessions()[0], width: 240, height: 28)
+        host.addSubview(badge)
+        var preferences = MenuPreferences()
+        preferences.theme = .light
+        badge.apply(preferences)
+        XCTAssertEqual(badge.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]), .aqua,
+                       "Status items must apply the selected appearance themselves")
+        let light = MenuPalette.badgeColors(preferences: preferences, appearance: host.effectiveAppearance)
+        let lightFill = try XCTUnwrap(light.background.usingColorSpace(.sRGB))
+        XCTAssertGreaterThan(lightFill.redComponent, 0.9)
+        XCTAssertLessThan(try XCTUnwrap(light.foreground.usingColorSpace(.sRGB)).redComponent, 0.3)
+        preferences.theme = .system
+        badge.apply(preferences)
+        XCTAssertNil(badge.appearance)
+        XCTAssertEqual(MenuPalette.badgeColors(preferences: preferences, appearance: host.effectiveAppearance).background.alphaComponent, 0)
+    }
+
+    func testCustomColorsAndOpacityPersistAndApplyIndependentlyOfWindowTheme() throws {
+        let model = PreferencesModel(MenuPreferences())
+        model.binding(\.customColors).wrappedValue = true
+        model.colorBinding(\.backgroundHex).wrappedValue = Color(nsColor: MenuPalette.color(0xE8F1FF))
+        model.colorBinding(\.textHex).wrappedValue = Color(nsColor: MenuPalette.color(0x173D63))
+        model.binding(\.backgroundOpacity).wrappedValue = 0.4
+        let saved = try JSONDecoder().decode(MenuPreferences.self, from: JSONEncoder().encode(model.preferences))
+        XCTAssertEqual(saved, model.preferences)
+        XCTAssertEqual(saved.backgroundHex, 0xE8F1FF)
+        XCTAssertEqual(saved.textHex, 0x173D63)
+        let colors = MenuPalette.badgeColors(preferences: saved, appearance: NSAppearance(named: .darkAqua)!)
+        XCTAssertEqual(colors.background.alphaComponent, 0.4, accuracy: 0.001)
+        XCTAssertEqual(colors.foreground, MenuPalette.color(0x173D63))
+        var invalid = saved
+        invalid.backgroundOpacity = .infinity
+        XCTAssertEqual(invalid.normalized.backgroundOpacity, 0.85)
+        invalid.backgroundOpacity = -1
+        XCTAssertEqual(invalid.normalized.backgroundOpacity, 0)
+    }
+
+    func testWholeSessionOutlineBreathesWithoutScrollingAndStopsForErrors() {
+        _ = NSApplication.shared
+        let badge = SessionBadgeView(session: exampleSessions()[0], width: 240, height: 28)
+        badge.scrolling = false
+        let outline = badge.statusOutline
+        outline.update(.running, reduceMotion: false)
+        XCTAssertTrue(outline.isPulsing)
+        outline.update(.completed, reduceMotion: false)
+        XCTAssertTrue(outline.isPulsing)
+        outline.update(.failed, reduceMotion: false)
+        XCTAssertFalse(outline.isPulsing)
+        outline.update(.running, reduceMotion: true)
+        XCTAssertFalse(outline.isPulsing)
+        badge.setStatusVerified(false)
+        XCTAssertEqual(outline.status, .unknown)
+        XCTAssertFalse(outline.isPulsing)
+        XCTAssertNil(outline.hitTest(.zero), "The outline must not intercept clicks or right-clicks")
     }
 }

@@ -90,17 +90,32 @@ final class SessionMenuItem {
 }
 
 struct StatusItemLayout {
-    static let controlWidth: CGFloat = 44
+    static let controlWidth: CGFloat = 28
     static let spacing: CGFloat = 8
+    static let controlFont = NSFont.systemFont(ofSize: 10, weight: .medium)
     let cardWidth: CGFloat
     let visibleCount: Int
+    let entryWidth: CGFloat
+
+    static func controlWidth(hiddenCount: Int) -> CGFloat {
+        guard hiddenCount > 0 else { return controlWidth }
+        let titleWidth = NSAttributedString(string: "+\(hiddenCount)", attributes: [.font: controlFont]).size().width
+        // Keep the icon compact, adding room only when an overflow count exists.
+        return controlWidth + 2 + ceil(titleWidth)
+    }
 
     init(sessions: Int, preferences: MenuPreferences, budget: CGFloat) {
         let preferences = preferences.normalized
         let available = max(0, budget - Self.controlWidth)
         cardWidth = CGFloat(preferences.cardWidth)
         let capacity = Int(available / (cardWidth + Self.spacing))
-        visibleCount = min(max(0, sessions), preferences.maxVisible, capacity)
+        let total = max(0, sessions)
+        var count = min(total, preferences.maxVisible, capacity)
+        while count > 0 && CGFloat(count) * (cardWidth + Self.spacing) + Self.controlWidth(hiddenCount: total - count) > budget {
+            count -= 1
+        }
+        visibleCount = count
+        entryWidth = Self.controlWidth(hiddenCount: total - count)
     }
 }
 
@@ -113,7 +128,7 @@ final class StatusItems {
     var onShowAll: (() -> Void)?
 
     init() {
-        control.button.font = .systemFont(ofSize: 10, weight: .medium)
+        control.button.font = StatusItemLayout.controlFont
         control.button.imagePosition = .imageLeading
         control.button.setAccessibilityLabel("Codex Menu 全部会话与设置")
         control.onPrimaryClick = { [weak self] in self?.onShowAll?() }
@@ -136,7 +151,7 @@ final class StatusItems {
                 items[session.id] = item
             }
             item.update(session, width: width, scrolling: preferences.scrolling && readError == nil, preferences: preferences)
-            item.badge.lamp.update(session.status, motionAllowed: readError == nil && preferences.animateLamps)
+            item.badge.setStatusVerified(readError == nil)
             if let readError {
                 item.button.toolTip = "数据读取失败；以下是最后一次记录，当前状态尚未确认。\n\(readError)\n\(session.title)\n\(session.summary)"
             }
@@ -144,6 +159,8 @@ final class StatusItems {
         }
         control.button.title = hiddenCount > 0 ? "+\(hiddenCount)" : ""
         control.button.image = AppArtwork.controlIcon(hasReadError: readError != nil)
+        let entryWidth = StatusItemLayout.controlWidth(hiddenCount: hiddenCount)
+        if control.statusItem.length != entryWidth { control.statusItem.length = entryWidth }
         control.button.toolTip = readError.map { "数据读取失败：\($0)\n点击查看详情" }
             ?? "\(sessions.count + hiddenCount) 个保留的会话\n左键或右键查看全部会话和设置\n按住 ⌘ 拖动可调整各个图标的位置"
     }

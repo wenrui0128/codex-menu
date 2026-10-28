@@ -60,12 +60,17 @@ struct MenuPreferences: Codable, Equatable {
     var showElapsed: Bool = true
     var animateLamps: Bool = true
     var theme: MenuTheme = .system
+    var customColors: Bool = false
+    var backgroundHex: UInt32 = 0xFFFFFF
+    var textHex: UInt32 = 0x252A32
+    var backgroundOpacity: Double = 0.85
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case cardWidth, maxVisible, scrolling, menuFontSize, detailFontSize, scrollSpeed
         case showTitle, showElapsed, animateLamps, theme
+        case customColors, backgroundHex, textHex, backgroundOpacity
     }
 
     // Older state files contain only width/count/scrolling. New controls must
@@ -82,6 +87,10 @@ struct MenuPreferences: Codable, Equatable {
         showElapsed = try values.decodeIfPresent(Bool.self, forKey: .showElapsed) ?? true
         animateLamps = try values.decodeIfPresent(Bool.self, forKey: .animateLamps) ?? true
         theme = (try values.decodeIfPresent(String.self, forKey: .theme)).flatMap(MenuTheme.init(rawValue:)) ?? .system
+        customColors = try values.decodeIfPresent(Bool.self, forKey: .customColors) ?? false
+        backgroundHex = try values.decodeIfPresent(UInt32.self, forKey: .backgroundHex) ?? 0xFFFFFF
+        textHex = try values.decodeIfPresent(UInt32.self, forKey: .textHex) ?? 0x252A32
+        backgroundOpacity = try values.decodeIfPresent(Double.self, forKey: .backgroundOpacity) ?? 0.85
         self = normalized
     }
 
@@ -92,6 +101,9 @@ struct MenuPreferences: Codable, Equatable {
         value.menuFontSize = menuFontSize.isFinite ? min(15, max(10, menuFontSize)) : 11
         value.detailFontSize = detailFontSize.isFinite ? min(20, max(11, detailFontSize)) : 13
         value.scrollSpeed = scrollSpeed.isFinite ? min(60, max(12, scrollSpeed)) : 24
+        value.backgroundHex = backgroundHex & 0xFFFFFF
+        value.textHex = textHex & 0xFFFFFF
+        value.backgroundOpacity = backgroundOpacity.isFinite ? min(1, max(0, backgroundOpacity)) : 0.85
         return value
     }
 }

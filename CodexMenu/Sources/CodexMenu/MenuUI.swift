@@ -5,6 +5,8 @@ final class SessionBadgeView: NSView {
     var scrolling = true
     private(set) var preferences = MenuPreferences()
     let lamp: StatusLampView
+    let statusOutline: StatusOutlineView
+    private var statusVerified = true
     private var hovered = false
     private var tracking: NSTrackingArea?
     private var epoch = ProcessInfo.processInfo.systemUptime
@@ -13,9 +15,11 @@ final class SessionBadgeView: NSView {
     init(session: Session, width: CGFloat, height: CGFloat) {
         self.session = session
         lamp = StatusLampView(status: session.status)
+        statusOutline = StatusOutlineView(status: session.status)
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: height))
         setAccessibilityElement(false)
         addSubview(lamp)
+        addSubview(statusOutline)
         update(session)
     }
 
@@ -25,8 +29,11 @@ final class SessionBadgeView: NSView {
         let next = preferences.normalized
         if next != self.preferences { epoch = ProcessInfo.processInfo.systemUptime }
         self.preferences = next
+        // NSStatusBarButton inherits a system-owned window appearance. Apply
+        // the selected theme directly to our view instead of only to NSApp.
+        appearance = next.theme.appearance
         scrolling = next.scrolling
-        lamp.update(session.status, motionAllowed: next.animateLamps)
+        refreshStatusFeedback()
         needsDisplay = true
     }
 
@@ -36,9 +43,25 @@ final class SessionBadgeView: NSView {
     func update(_ value: Session) {
         if session.displayText != value.displayText { epoch = ProcessInfo.processInfo.systemUptime }
         session = value
-        lamp.update(value.status, motionAllowed: preferences.animateLamps)
+        refreshStatusFeedback()
         toolTip = "\(value.title)\n\(value.displayText)\n" +
             (value.status.isTerminal ? "点击打开对应会话，并仅收起这一条" : "点击打开对应会话，进度条继续保留")
+        needsDisplay = true
+    }
+
+    func setStatusVerified(_ verified: Bool) {
+        statusVerified = verified
+        refreshStatusFeedback()
+    }
+
+    private func refreshStatusFeedback() {
+        let status: SessionStatus = statusVerified ? session.status : .unknown
+        lamp.update(status, motionAllowed: false)
+        statusOutline.update(status, motionAllowed: statusVerified && preferences.animateLamps)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
         needsDisplay = true
     }
 
@@ -56,6 +79,7 @@ final class SessionBadgeView: NSView {
     override func layout() {
         super.layout()
         lamp.frame = NSRect(x: 9, y: bounds.midY - 6, width: 12, height: 12)
+        statusOutline.frame = bounds
     }
 
     private var textFont: NSFont { .systemFont(ofSize: preferences.menuFontSize) }
@@ -73,17 +97,17 @@ final class SessionBadgeView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let background = MenuPalette.surface(dark: dark)
-        let foreground = MenuPalette.foreground(dark: dark)
-        let secondary = MenuPalette.secondary(dark: dark)
+        let colors = MenuPalette.badgeColors(preferences: preferences, appearance: effectiveAppearance)
+        let background = colors.background
+        let foreground = colors.foreground
+        let secondary = colors.secondary
         let capsule = bounds.insetBy(dx: 1.5, dy: 2)
         let highlighted = (superview as? NSButton)?.isHighlighted ?? false
         let fill = hovered || highlighted ? background.blended(withFraction: 0.07, of: foreground)! : background
         fill.setFill()
         let outline = NSBezierPath(roundedRect: capsule, xRadius: 6, yRadius: 6)
         outline.fill()
-        MenuPalette.border(dark: dark).setStroke()
+        colors.border.setStroke()
         outline.lineWidth = 0.5
         outline.stroke()
 
@@ -99,7 +123,7 @@ final class SessionBadgeView: NSView {
         if preferences.showTitle {
             titleText.draw(in: NSRect(x: 27, y: centerY - titleText.size().height / 2,
                                      width: clip.minX - 47, height: titleText.size().height))
-            MenuPalette.border(dark: dark).setFill()
+            colors.border.setFill()
             NSRect(x: clip.minX - 10, y: centerY - 4, width: 0.5, height: 8).fill()
         }
         let text = NSAttributedString(string: session.displayText, attributes: [
@@ -372,7 +396,7 @@ final class MenuAppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             (0, "显示会话标题", preferences.showTitle),
             (1, "显示运行计时", preferences.showElapsed),
             (2, "滚动公开进度", preferences.scrolling),
-            (3, "状态灯柔和闪烁", preferences.animateLamps)
+            (3, "会话边框呼吸光", preferences.animateLamps)
         ] {
             let item = NSMenuItem(title: title, action: #selector(toggleOption(_:)), keyEquivalent: "")
             item.target = self; item.tag = tag; item.state = enabled ? .on : .off
@@ -491,6 +515,7 @@ final class MenuAppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func preferencesChanged() {
         tracker.state.preferences = tracker.state.preferences.normalized
         NSApp.appearance = tracker.state.preferences.theme.appearance
+        settingsWindow?.window?.appearance = tracker.state.preferences.theme.appearance
         settingsWindow?.model.replace(tracker.state.preferences, notify: false)
         persist()
         render()
