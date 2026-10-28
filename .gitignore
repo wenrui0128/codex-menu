@@ -1,0 +1,6 @@
+CodexMenu/.build/
+CodexMenu/dist/
+CodexMenu/.local-backups/
+CodexMenu/release/
+.publish/
+.DS_Store

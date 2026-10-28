@@ -1,0 +1,60 @@
+name: Build macOS release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version
+        working-directory: CodexMenu
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == push ]]; then
+            test "$RELEASE_TAG" = "v$(cat VERSION)"
+          fi
+      - name: Build universal app and checksums
+        working-directory: CodexMenu
+        run: zsh scripts/release.sh
+      - name: Test download-only installer
+        working-directory: CodexMenu
+        run: bash scripts/test-installer.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CodexMenu-release
+          path: |
+            CodexMenu/release/v*/*.zip
+            CodexMenu/release/v*/SHA256SUMS
+            CodexMenu/release/v*/install.sh
+            CodexMenu/release/v*/LICENSE
+            CodexMenu/release/v*/THIRD_PARTY_NOTICES.md
+      - name: Publish release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; verified build remains available as a workflow artifact."
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Codex Menu $RELEASE_TAG" \
+            --notes-file .github/RELEASE_NOTES.md \
+            "CodexMenu/release/$RELEASE_TAG/CodexMenu-macos-universal.zip" \
+            "CodexMenu/release/$RELEASE_TAG/SHA256SUMS" \
+            "CodexMenu/release/$RELEASE_TAG/install.sh" \
+            "CodexMenu/release/$RELEASE_TAG/LICENSE" \
+            "CodexMenu/release/$RELEASE_TAG/THIRD_PARTY_NOTICES.md"
