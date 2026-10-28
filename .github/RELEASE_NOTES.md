@@ -5,7 +5,7 @@
 - 保留完成会话，打开后仅收起该条；支持字号、宽度、主题和滚动设置。
 - Universal 2 安装包：Apple Silicon / Intel，macOS 13 或以上。
 
-命令行安装（默认 `~/Applications`，无需 sudo，不会自动启动）：
+命令行安装（默认 `~/Applications`，无需 sudo，需自行设置自动启动）：
 
 ```sh
 curl -fsSL https://github.com/wenrui0128/codex-menu/releases/latest/download/install.sh -o /tmp/codex-menu-install.sh
