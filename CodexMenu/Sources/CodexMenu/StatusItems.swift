@@ -17,6 +17,7 @@ final class NativeMenuBarItem: NSObject {
         button.target = self
         button.action = #selector(activate(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        button.appearsDisabled = false
     }
 
     deinit { remove() }

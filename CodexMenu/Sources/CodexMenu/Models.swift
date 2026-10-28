@@ -41,15 +41,10 @@ struct Session: Codable, Equatable, Identifiable {
     var displayText: String { "\(status.label) · \(summary)" }
 }
 
-enum MenuTheme: String, Codable, CaseIterable, Identifiable {
-    case system, light, dark
-    var id: String { rawValue }
-    var label: String {
-        switch self { case .system: return "跟随系统"; case .light: return "浅色"; case .dark: return "深色" }
-    }
-}
-
 struct MenuPreferences: Codable, Equatable {
+    // Match the graphite tile and light ink in the bundled app icon.
+    static let defaultBackgroundHex: UInt32 = 0x3C434E
+    static let defaultTextHex: UInt32 = 0xF7F8FA
     var cardWidth: Double = 240
     var maxVisible: Int = 3
     var scrolling: Bool = true
@@ -59,19 +54,17 @@ struct MenuPreferences: Codable, Equatable {
     var showTitle: Bool = true
     var showElapsed: Bool = true
     var animateLamps: Bool = true
-    var theme: MenuTheme = .system
-    var cutoutText: Bool = true
     var customColors: Bool = false
-    var backgroundHex: UInt32 = 0xFFFFFF
-    var textHex: UInt32 = 0x252A32
-    var backgroundOpacity: Double = 0.85
+    var backgroundHex: UInt32 = Self.defaultBackgroundHex
+    var textHex: UInt32 = Self.defaultTextHex
+    var backgroundOpacity: Double = 1
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case cardWidth, maxVisible, scrolling, menuFontSize, detailFontSize, scrollSpeed
-        case showTitle, showElapsed, animateLamps, theme
-        case cutoutText, customColors, backgroundHex, textHex, backgroundOpacity
+        case showTitle, showElapsed, animateLamps
+        case customColors, backgroundHex, textHex, backgroundOpacity
     }
 
     // Older state files contain only width/count/scrolling. New controls must
@@ -87,12 +80,17 @@ struct MenuPreferences: Codable, Equatable {
         showTitle = try values.decodeIfPresent(Bool.self, forKey: .showTitle) ?? true
         showElapsed = try values.decodeIfPresent(Bool.self, forKey: .showElapsed) ?? true
         animateLamps = try values.decodeIfPresent(Bool.self, forKey: .animateLamps) ?? true
-        theme = (try values.decodeIfPresent(String.self, forKey: .theme)).flatMap(MenuTheme.init(rawValue:)) ?? .system
-        cutoutText = try values.decodeIfPresent(Bool.self, forKey: .cutoutText) ?? true
+        // Retired theme/cutout keys are ignored. Built-in colors always use
+        // opaque graphite, while explicitly customized colors remain intact.
         customColors = try values.decodeIfPresent(Bool.self, forKey: .customColors) ?? false
-        backgroundHex = try values.decodeIfPresent(UInt32.self, forKey: .backgroundHex) ?? 0xFFFFFF
-        textHex = try values.decodeIfPresent(UInt32.self, forKey: .textHex) ?? 0x252A32
-        backgroundOpacity = try values.decodeIfPresent(Double.self, forKey: .backgroundOpacity) ?? 0.85
+        backgroundHex = try values.decodeIfPresent(UInt32.self, forKey: .backgroundHex) ?? Self.defaultBackgroundHex
+        textHex = try values.decodeIfPresent(UInt32.self, forKey: .textHex) ?? Self.defaultTextHex
+        backgroundOpacity = try values.decodeIfPresent(Double.self, forKey: .backgroundOpacity) ?? 1
+        if !customColors {
+            backgroundHex = Self.defaultBackgroundHex
+            textHex = Self.defaultTextHex
+            backgroundOpacity = 1
+        }
         self = normalized
     }
 
@@ -105,7 +103,7 @@ struct MenuPreferences: Codable, Equatable {
         value.scrollSpeed = scrollSpeed.isFinite ? min(60, max(12, scrollSpeed)) : 24
         value.backgroundHex = backgroundHex & 0xFFFFFF
         value.textHex = textHex & 0xFFFFFF
-        value.backgroundOpacity = backgroundOpacity.isFinite ? min(1, max(0, backgroundOpacity)) : 0.85
+        value.backgroundOpacity = backgroundOpacity.isFinite ? min(1, max(0, backgroundOpacity)) : 1
         return value
     }
 }

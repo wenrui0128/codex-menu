@@ -5,11 +5,11 @@
 - 完成后保留，点击打开后只收起这一条，其他会话继续显示。
 - 支持字号、宽度、颜色和滚动设置，可在程序中设置登录后启动。
 
-本次更新：默认白底镂空文字，缩小图标与滚动文字的间距，加入环绕整个条目的状态光。
+本次更新：恢复与应用图标一致的石墨灰底色，改用清晰的实色浅色文字，移除深浅模式与镂空选项。切换窗口后仍保持固定配色，边框在呼吸光变暗时也保持可见。
 
-![菜单栏与右键预览](https://github.com/wenrui0128/codex-menu/releases/download/v0.5.5/CodexMenu-right-click-preview.png)
+![菜单栏与右键预览](https://github.com/wenrui0128/codex-menu/releases/download/v0.5.6/CodexMenu-right-click-preview.png)
 
-[查看高清图](https://github.com/wenrui0128/codex-menu/releases/download/v0.5.5/CodexMenu-right-click-preview.png)
+[查看高清图](https://github.com/wenrui0128/codex-menu/releases/download/v0.5.6/CodexMenu-right-click-preview.png)
 
 支持 macOS 13 或以上，Apple Silicon / Intel。
 

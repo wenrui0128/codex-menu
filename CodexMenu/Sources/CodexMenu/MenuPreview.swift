@@ -2,8 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Uses production views and isolated sample data; does not capture the screen.
-func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false,
-                       theme: MenuTheme = .system, customColors: Bool = false) throws {
+func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false, customColors: Bool = false) throws {
     let app = NSApplication.shared
     app.setActivationPolicy(.prohibited)
     let canvas = NSView(frame: NSRect(x: 0, y: 0, width: 1080, height: 630))
@@ -20,9 +19,8 @@ func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false,
         canvas.addSubview(field)
     }
     label("Codex Menu", x: 32, y: 560, size: 26, weight: .semibold)
-    label("独立会话图标 · 白底镂空字 · 环绕状态光", x: 32, y: 532, size: 14, secondary: true)
+    label("独立会话图标 · 石墨灰底色 · 环绕状态光", x: 32, y: 532, size: 14, secondary: true)
     var preferences = MenuPreferences()
-    preferences.theme = theme
     preferences.customColors = customColors
     if largeFont { preferences.menuFontSize = 15; preferences.detailFontSize = 20 }
     let bar = NSView(frame: NSRect(x: 32, y: 458, width: 1016, height: 42))
@@ -82,12 +80,11 @@ func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false,
     withExtendedLifetime(detail) {}
 }
 
-func renderSettingsPreview(to path: String, dark: Bool, largeFont: Bool = false, customColors: Bool = false) throws {
+func renderSettingsPreview(to path: String, largeFont: Bool = false, customColors: Bool = false) throws {
     let app = NSApplication.shared
     app.setActivationPolicy(.prohibited)
-    app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+    app.appearance = MenuPalette.appearance
     var preferences = MenuPreferences()
-    preferences.theme = dark ? .dark : .light
     preferences.customColors = customColors
     if largeFont { preferences.menuFontSize = 15; preferences.detailFontSize = 20 }
     let model = PreferencesModel(preferences)

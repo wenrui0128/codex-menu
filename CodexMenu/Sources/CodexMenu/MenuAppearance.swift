@@ -7,8 +7,9 @@ enum MenuPalette {
         let foreground: NSColor
         let secondary: NSColor
         let border: NSColor
-        let cutoutText: Bool
     }
+
+    static let appearance = NSAppearance(named: .darkAqua)!
 
     static func color(_ hex: UInt32) -> NSColor {
         NSColor(srgbRed: CGFloat((hex >> 16) & 255) / 255,
@@ -24,28 +25,17 @@ enum MenuPalette {
         dark ? NSColor.white.withAlphaComponent(0.13) : color(0xC9CFD8).withAlphaComponent(0.8)
     }
 
-    static func badgeColors(preferences: MenuPreferences, appearance: NSAppearance) -> BadgeColors {
-        let dark: Bool
-        switch preferences.theme {
-        case .light: dark = false
-        case .dark: dark = true
-        case .system: dark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        }
+    static func badgeColors(preferences: MenuPreferences) -> BadgeColors {
         if preferences.customColors {
             let text = color(preferences.textHex)
             return BadgeColors(background: color(preferences.backgroundHex).withAlphaComponent(preferences.backgroundOpacity),
-                               foreground: text, secondary: text, border: text.withAlphaComponent(0.14),
-                               cutoutText: preferences.cutoutText)
+                               foreground: text, secondary: text, border: text.withAlphaComponent(0.4))
         }
-        if preferences.cutoutText {
-            return BadgeColors(background: NSColor.white.withAlphaComponent(0.94),
-                               foreground: .black, secondary: .black,
-                               border: NSColor.black.withAlphaComponent(0.08), cutoutText: true)
-        }
-        // Follow the actual menu bar material, including wallpaper-dependent contrast.
-        let background: NSColor = preferences.theme == .system ? .clear : surface(dark: dark).withAlphaComponent(0.94)
-        return BadgeColors(background: background, foreground: foreground(dark: dark),
-                           secondary: secondary(dark: dark), border: border(dark: dark), cutoutText: false)
+        // Opaque, explicit sRGB colors keep text readable when macOS changes
+        // the menu bar's active/inactive material or the desktop wallpaper.
+        return BadgeColors(background: color(MenuPreferences.defaultBackgroundHex),
+                           foreground: color(MenuPreferences.defaultTextHex),
+                           secondary: color(0xE0E5EB), border: color(0xABB4C1).withAlphaComponent(0.55))
     }
 
     static func lamp(for status: SessionStatus, dark: Bool) -> NSColor {
@@ -121,7 +111,7 @@ final class StatusOutlineView: NSView {
         glow.removeAllAnimations()
         guard shouldPulse, let period = MenuPalette.pulsePeriod(for: value) else { return }
         let pulse = CAKeyframeAnimation(keyPath: "opacity")
-        pulse.values = [0.9, 0.28, 0.9]
+        pulse.values = [0.95, 0.48, 0.95]
         pulse.keyTimes = [0, 0.5, 1]
         pulse.timingFunctions = [CAMediaTimingFunction(name: .easeInEaseOut), CAMediaTimingFunction(name: .easeInEaseOut)]
         pulse.duration = period

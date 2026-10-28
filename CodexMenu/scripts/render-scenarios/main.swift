@@ -208,7 +208,6 @@ func renderScenario(number: Int, dark: Bool, to file: String) throws {
     let window = NSWindow(contentRect: canvas.bounds, styleMask: [.borderless], backing: .buffered, defer: false)
     window.contentView = canvas
     var preferences = MenuPreferences()
-    preferences.theme = dark ? .dark : .light
     preferences.cardWidth = 260
     preferences.menuFontSize = number == 3 ? 13 : 11.5
     preferences.detailFontSize = number == 3 ? 16 : 14

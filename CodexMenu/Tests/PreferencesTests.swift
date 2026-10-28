@@ -15,7 +15,8 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(state.preferences.menuFontSize, 11)
         XCTAssertEqual(state.preferences.detailFontSize, 13)
         XCTAssertTrue(state.preferences.animateLamps)
-        XCTAssertTrue(state.preferences.cutoutText)
+        XCTAssertEqual(state.preferences.backgroundHex, MenuPreferences.defaultBackgroundHex)
+        XCTAssertEqual(state.preferences.backgroundOpacity, 1)
         XCTAssertNil(state.sessions["one"]?.startedAt)
         let restored = try JSONDecoder().decode(SavedState.self, from: JSONEncoder().encode(state))
         XCTAssertEqual(restored.preferences, state.preferences)
@@ -37,7 +38,7 @@ final class PreferencesTests: XCTestCase {
         }
         model.binding(\.menuFontSize).wrappedValue = 14.5
         model.binding(\.detailFontSize).wrappedValue = 20
-        model.binding(\.theme).wrappedValue = .dark
+        model.binding(\.showTitle).wrappedValue = false
         model.binding(\.scrollSpeed).wrappedValue = 48
         XCTAssertEqual(calls, 4)
         XCTAssertEqual(try persistence.load().preferences, model.preferences)
@@ -118,63 +119,76 @@ final class PreferencesTests: XCTestCase {
         XCTAssertFalse(detail.view.hasAmbiguousLayout)
     }
 
-    func testExplicitLightThemeOverridesADarkMenuBarAndSystemUsesTransparentFill() throws {
-        _ = NSApplication.shared
-        let host = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 28))
-        host.appearance = NSAppearance(named: .darkAqua)
-        let badge = SessionBadgeView(session: exampleSessions()[0], width: 240, height: 28)
-        host.addSubview(badge)
-        var preferences = MenuPreferences()
-        preferences.cutoutText = false
-        preferences.theme = .light
-        badge.apply(preferences)
-        XCTAssertEqual(badge.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]), .aqua,
-                       "Status items must apply the selected appearance themselves")
-        let light = MenuPalette.badgeColors(preferences: preferences, appearance: host.effectiveAppearance)
-        let lightFill = try XCTUnwrap(light.background.usingColorSpace(.sRGB))
-        XCTAssertGreaterThan(lightFill.redComponent, 0.9)
-        XCTAssertLessThan(try XCTUnwrap(light.foreground.usingColorSpace(.sRGB)).redComponent, 0.3)
-        preferences.theme = .system
-        badge.apply(preferences)
-        XCTAssertNil(badge.appearance)
-        XCTAssertEqual(MenuPalette.badgeColors(preferences: preferences, appearance: host.effectiveAppearance).background.alphaComponent, 0)
+    func testLegacyLightAndCutoutSettingsMigrateToOpaqueGraphite() throws {
+        let legacy = Data(#"{"theme":"light","cutoutText":true,"customColors":false,"backgroundHex":16777215,"textHex":2435634,"backgroundOpacity":0.85,"menuFontSize":14,"scrollSpeed":32}"#.utf8)
+        let preferences = try JSONDecoder().decode(MenuPreferences.self, from: legacy)
+        XCTAssertEqual(preferences.backgroundHex, MenuPreferences.defaultBackgroundHex)
+        XCTAssertEqual(preferences.textHex, MenuPreferences.defaultTextHex)
+        XCTAssertEqual(preferences.backgroundOpacity, 1)
+        XCTAssertEqual(preferences.menuFontSize, 14)
+        XCTAssertEqual(preferences.scrollSpeed, 32)
+        let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(preferences)) as? [String: Any])
+        XCTAssertNil(encoded["theme"])
+        XCTAssertNil(encoded["cutoutText"])
     }
 
-    func testCustomColorsAndOpacityPersistAndApplyIndependentlyOfWindowTheme() throws {
+    func testGraphiteColorsStayFixedUnderSystemAppearances() throws {
+        _ = NSApplication.shared
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 28))
+        let badge = SessionBadgeView(session: exampleSessions()[0], width: 240, height: 28)
+        host.addSubview(badge)
+        badge.apply(MenuPreferences())
+        for name in [NSAppearance.Name.aqua, .darkAqua, .accessibilityHighContrastAqua, .accessibilityHighContrastDarkAqua] {
+            host.appearance = NSAppearance(named: name)
+            XCTAssertEqual(badge.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]), .darkAqua)
+            XCTAssertFalse(badge.allowsVibrancy)
+            let colors = MenuPalette.badgeColors(preferences: badge.preferences)
+            XCTAssertEqual(colors.background, MenuPalette.color(0x3C434E))
+            XCTAssertEqual(colors.background.alphaComponent, 1)
+            func luminance(_ color: NSColor) throws -> Double {
+                let rgb = try XCTUnwrap(color.usingColorSpace(.sRGB))
+                func linear(_ v: CGFloat) -> Double { v <= 0.04045 ? Double(v / 12.92) : pow(Double((v + 0.055) / 1.055), 2.4) }
+                return 0.2126 * linear(rgb.redComponent) + 0.7152 * linear(rgb.greenComponent) + 0.0722 * linear(rgb.blueComponent)
+            }
+            let background = try luminance(colors.background)
+            for ink in [colors.foreground, colors.secondary] {
+                XCTAssertGreaterThanOrEqual((try luminance(ink) + 0.05) / (background + 0.05), 4.5)
+            }
+        }
+    }
+
+    func testCustomColorsAndOpacityPersistIndependentlyOfSystemAppearance() throws {
         let model = PreferencesModel(MenuPreferences())
-        model.binding(\.cutoutText).wrappedValue = false
         model.binding(\.customColors).wrappedValue = true
         model.colorBinding(\.backgroundHex).wrappedValue = Color(nsColor: MenuPalette.color(0xE8F1FF))
         model.colorBinding(\.textHex).wrappedValue = Color(nsColor: MenuPalette.color(0x173D63))
         model.binding(\.backgroundOpacity).wrappedValue = 0.4
         let saved = try JSONDecoder().decode(MenuPreferences.self, from: JSONEncoder().encode(model.preferences))
         XCTAssertEqual(saved, model.preferences)
-        XCTAssertFalse(saved.cutoutText)
         XCTAssertEqual(saved.backgroundHex, 0xE8F1FF)
         XCTAssertEqual(saved.textHex, 0x173D63)
-        let colors = MenuPalette.badgeColors(preferences: saved, appearance: NSAppearance(named: .darkAqua)!)
+        let colors = MenuPalette.badgeColors(preferences: saved)
         XCTAssertEqual(colors.background.alphaComponent, 0.4, accuracy: 0.001)
         XCTAssertEqual(colors.foreground, MenuPalette.color(0x173D63))
         var invalid = saved
         invalid.backgroundOpacity = .infinity
-        XCTAssertEqual(invalid.normalized.backgroundOpacity, 0.85)
+        XCTAssertEqual(invalid.normalized.backgroundOpacity, 1)
         invalid.backgroundOpacity = -1
         XCTAssertEqual(invalid.normalized.backgroundOpacity, 0)
     }
 
-    func testDefaultWhiteCapsuleActuallyCutsTransparentGlyphsIntoItsFill() throws {
+    func testDefaultGraphiteCapsuleDrawsOpaqueLightGlyphs() throws {
         _ = NSApplication.shared
-        let session = Session(id: "cutout", turnID: "turn", title: "MMMM", status: .running,
+        let session = Session(id: "solid-ink", turnID: "turn", title: "MMMM", status: .running,
                               summary: "MMMMMMMM", updatedAt: Date())
         let badge = SessionBadgeView(session: session, width: 240, height: 28)
         var preferences = MenuPreferences()
         preferences.menuFontSize = 15
         preferences.scrolling = false
         badge.apply(preferences)
-        let colors = MenuPalette.badgeColors(preferences: preferences, appearance: NSAppearance(named: .darkAqua)!)
-        XCTAssertTrue(colors.cutoutText)
-        XCTAssertEqual(try XCTUnwrap(colors.background.usingColorSpace(.sRGB)).redComponent, 1)
-        XCTAssertGreaterThan(colors.background.alphaComponent, 0.9)
+        let colors = MenuPalette.badgeColors(preferences: preferences)
+        XCTAssertEqual(colors.background, MenuPalette.color(0x3C434E))
+        XCTAssertEqual(colors.background.alphaComponent, 1)
 
         let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 480, pixelsHigh: 56,
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -187,19 +201,52 @@ final class PreferencesTests: XCTestCase {
         badge.draw(badge.bounds)
         NSGraphicsContext.restoreGraphicsState()
 
-        // Sample only the title's interior, excluding the capsule's transparent
-        // margins, outline, status lamp and divider.
+        // Glyphs must remain solid, light ink rather than reveal the menu bar.
         var holes = 0
-        var body = 0
+        var ink = 0
         for y in 16..<40 {
             for x in 58..<170 {
-                let alpha = try XCTUnwrap(bitmap.colorAt(x: x, y: y)).alphaComponent
+                let color = try XCTUnwrap(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
+                let alpha = color.alphaComponent
                 if alpha < 0.05 { holes += 1 }
-                if alpha > 0.9 { body += 1 }
+                if alpha > 0.99 && color.redComponent > 0.85 { ink += 1 }
             }
         }
-        XCTAssertGreaterThan(holes, 50, "Glyphs must remove alpha, not just be painted in a matching color")
-        XCTAssertGreaterThan(body, 50, "White fill must remain between the glyphs")
+        XCTAssertEqual(holes, 0, "Text must stay opaque when the menu bar material changes")
+        XCTAssertGreaterThan(ink, 50, "Light glyphs must remain visible over the dark fill")
+    }
+
+    func testBadgePixelsStayFixedWhenMenuMaterialBecomesInactive() throws {
+        _ = NSApplication.shared
+        let material = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 240, height: 28))
+        material.material = .menu
+        material.blendingMode = .behindWindow
+        material.appearance = NSAppearance(named: .aqua)
+        let window = NSWindow(contentRect: material.bounds, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = material
+        let badge = SessionBadgeView(session: exampleSessions()[0], width: 240, height: 28)
+        var preferences = MenuPreferences()
+        preferences.scrolling = false
+        preferences.animateLamps = false
+        badge.apply(preferences)
+        material.addSubview(badge)
+        func pixels(_ state: NSVisualEffectView.State) throws -> [NSColor] {
+            material.state = state
+            material.layoutSubtreeIfNeeded()
+            let bitmap = try XCTUnwrap(badge.bitmapImageRepForCachingDisplay(in: badge.bounds))
+            badge.cacheDisplay(in: badge.bounds, to: bitmap)
+            let scale = CGFloat(bitmap.pixelsWide) / badge.bounds.width
+            return try (8..<20).flatMap { y in
+                try (24..<130).map { x in
+                    try XCTUnwrap(bitmap.colorAt(x: Int(CGFloat(x) * scale), y: Int(CGFloat(y) * scale)))
+                }
+            }
+        }
+        let active = try pixels(.active)
+        let inactive = try pixels(.inactive)
+        XCTAssertEqual(active, inactive, "Losing active menu material must not fade the badge or its text")
+        XCTAssertTrue(inactive.allSatisfy { $0.alphaComponent > 0.99 })
+        withExtendedLifetime(window) {}
     }
 
     func testWholeSessionOutlineBreathesWithoutScrollingAndStopsForErrors() {

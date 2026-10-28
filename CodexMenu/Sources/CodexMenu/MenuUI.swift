@@ -11,6 +11,7 @@ final class SessionBadgeView: NSView {
     private var tracking: NSTrackingArea?
     private var epoch = ProcessInfo.processInfo.systemUptime
     override var isFlipped: Bool { true }
+    override var allowsVibrancy: Bool { false }
 
     init(session: Session, width: CGFloat, height: CGFloat) {
         self.session = session
@@ -31,9 +32,9 @@ final class SessionBadgeView: NSView {
         let next = preferences.normalized
         if next != self.preferences { epoch = ProcessInfo.processInfo.systemUptime }
         self.preferences = next
-        // NSStatusBarButton inherits a system-owned window appearance. Apply
-        // the selected theme directly to our view instead of only to NSApp.
-        appearance = next.cutoutText && !next.customColors ? NSAppearance(named: .aqua) : next.theme.appearance
+        // The menu bar is system-owned; pin our content independently of its
+        // active/inactive appearance and use solid ink instead of cutout text.
+        appearance = MenuPalette.appearance
         scrolling = next.scrolling
         refreshStatusFeedback()
         needsDisplay = true
@@ -105,26 +106,20 @@ final class SessionBadgeView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        let colors = MenuPalette.badgeColors(preferences: preferences, appearance: effectiveAppearance)
+        let colors = MenuPalette.badgeColors(preferences: preferences)
         let background = colors.background
-        let foreground: NSColor = colors.cutoutText ? .black : colors.foreground
-        let secondary: NSColor = colors.cutoutText ? .black : colors.secondary
+        let foreground = colors.foreground
+        let secondary = colors.secondary
         let capsule = bounds.insetBy(dx: 1.5, dy: 2)
         let highlighted = (superview as? NSButton)?.isHighlighted ?? false
-        let fill = hovered || highlighted ? background.blended(withFraction: 0.07, of: foreground)! : background
-        // Isolate the capsule before subtracting glyphs. The holes reveal the
-        // real menu-bar material without erasing the native button behind it.
+        let fill = hovered || highlighted ? background.blended(withFraction: 0.04, of: foreground)! : background
         NSGraphicsContext.saveGraphicsState()
-        let context = NSGraphicsContext.current!.cgContext
-        context.beginTransparencyLayer(auxiliaryInfo: nil)
         fill.setFill()
         let outline = NSBezierPath(roundedRect: capsule, xRadius: 6, yRadius: 6)
         outline.fill()
         colors.border.setStroke()
-        outline.lineWidth = 0.5
+        outline.lineWidth = 1
         outline.stroke()
-
-        if colors.cutoutText { context.setBlendMode(.destinationOut) }
 
         let titleStyle = NSMutableParagraphStyle()
         titleStyle.lineBreakMode = .byTruncatingTail
@@ -137,7 +132,7 @@ final class SessionBadgeView: NSView {
         let clip = progressFrame
         if preferences.showTitle {
             titleText.draw(in: titleFrame)
-            (colors.cutoutText ? NSColor.black : colors.border).setFill()
+            colors.border.setFill()
             NSRect(x: clip.minX - 6, y: centerY - 4, width: 0.5, height: 8).fill()
         }
         let text = NSAttributedString(string: session.displayText, attributes: [
@@ -155,7 +150,7 @@ final class SessionBadgeView: NSView {
         clip.clip()
         if shouldAnimate {
             text.draw(at: NSPoint(x: clip.minX - offset, y: centerY - text.size().height / 2))
-            if !colors.cutoutText && textWidth - offset > clip.width {
+            if textWidth - offset > clip.width {
                 NSGradient(starting: fill.withAlphaComponent(0), ending: fill)?.draw(
                     in: NSRect(x: clip.maxX - 9, y: clip.minY, width: 9, height: clip.height), angle: 0)
             }
@@ -163,8 +158,6 @@ final class SessionBadgeView: NSView {
             text.draw(in: NSRect(x: clip.minX, y: centerY - text.size().height / 2, width: clip.width, height: text.size().height))
         }
         NSGraphicsContext.restoreGraphicsState()
-        context.setBlendMode(.normal)
-        context.endTransparencyLayer()
         NSGraphicsContext.restoreGraphicsState()
         if superview is NSButton, window?.firstResponder === superview {
             NSGraphicsContext.saveGraphicsState()
@@ -214,7 +207,7 @@ final class MenuAppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        NSApp.appearance = tracker.state.preferences.theme.appearance
+        NSApp.appearance = MenuPalette.appearance
         statusItems = StatusItems()
         menuButton = statusItems.control.button
         statusItems.onShowAll = { [weak self] in self?.showMenu() }
@@ -425,13 +418,6 @@ final class MenuAppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(optionItem)
 
         let appearance = NSMenu()
-        for theme in MenuTheme.allCases {
-            let item = NSMenuItem(title: theme.label, action: #selector(setTheme(_:)), keyEquivalent: "")
-            item.target = self; item.representedObject = theme.rawValue
-            item.state = preferences.theme == theme ? .on : .off
-            appearance.addItem(item)
-        }
-        appearance.addItem(.separator())
         for (label, sizes, isDetail) in [("菜单栏字号", [10, 11, 12, 13, 14, 15], false),
                                          ("进度卡片字号", [11, 12, 13, 14, 16, 18, 20], true)] {
             let sizesMenu = NSMenu()
@@ -507,12 +493,6 @@ final class MenuAppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         preferencesChanged()
     }
 
-    @objc private func setTheme(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let theme = MenuTheme(rawValue: raw) else { return }
-        tracker.state.preferences.theme = theme
-        preferencesChanged()
-    }
-
     @objc private func setFontSize(_ sender: NSMenuItem) {
         if sender.representedObject as? Bool == true { tracker.state.preferences.detailFontSize = Double(sender.tag) }
         else { tracker.state.preferences.menuFontSize = Double(sender.tag) }
@@ -531,8 +511,8 @@ final class MenuAppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func preferencesChanged() {
         tracker.state.preferences = tracker.state.preferences.normalized
-        NSApp.appearance = tracker.state.preferences.theme.appearance
-        settingsWindow?.window?.appearance = tracker.state.preferences.theme.appearance
+        NSApp.appearance = MenuPalette.appearance
+        settingsWindow?.window?.appearance = MenuPalette.appearance
         settingsWindow?.model.replace(tracker.state.preferences, notify: false)
         persist()
         render()

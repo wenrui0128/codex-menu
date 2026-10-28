@@ -2,24 +2,6 @@ import AppKit
 import SwiftUI
 import ServiceManagement
 
-extension MenuTheme {
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system: return nil
-        case .light: return .light
-        case .dark: return .dark
-        }
-    }
-
-    var appearance: NSAppearance? {
-        switch self {
-        case .system: return nil
-        case .light: return NSAppearance(named: .aqua)
-        case .dark: return NSAppearance(named: .darkAqua)
-        }
-    }
-}
-
 final class PreferencesModel: ObservableObject {
     @Published private(set) var preferences: MenuPreferences
     var onChange: ((MenuPreferences) -> Void)?
@@ -138,7 +120,7 @@ struct MenuSettingsView: View {
 
             HStack(spacing: 2) {
                 tabButton("显示", index: 0)
-                tabButton("颜色与外观", index: 1)
+                tabButton("颜色", index: 1)
                 tabButton("交互与启动", index: 2)
             }
             .padding(3)
@@ -156,7 +138,7 @@ struct MenuSettingsView: View {
             Divider().padding(.top, 12)
             HStack {
                 Button("恢复显示默认值") { model.replace(MenuPreferences()) }
-                    .help("恢复字体、宽度、主题和动效设置；保留所有会话及登录项。")
+                    .help("恢复字体、宽度、颜色和动效设置；保留所有会话及登录项。")
                 Spacer()
                 Text("自动保存").font(.system(size: 11)).foregroundStyle(.secondary)
                 Button("完成", action: onDone)
@@ -166,7 +148,7 @@ struct MenuSettingsView: View {
         }
         .frame(width: 560, height: 720)
         .background(Color(nsColor: .windowBackgroundColor))
-        .preferredColorScheme(model.preferences.theme.colorScheme)
+        .preferredColorScheme(.dark)
     }
 
     private func tabButton(_ title: String, index: Int) -> some View {
@@ -197,8 +179,7 @@ struct MenuSettingsView: View {
                 Spacer(minLength: 0)
             }
             .frame(height: 44)
-            .background(model.preferences.cutoutText ? Color(nsColor: MenuPalette.color(0x52615D)) : Color.primary.opacity(0.05),
-                        in: RoundedRectangle(cornerRadius: 8))
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
         }
         .padding(.horizontal, 16).padding(.top, 16)
     }
@@ -231,28 +212,21 @@ struct MenuSettingsView: View {
         VStack(spacing: 0) {
             badgePreview
             Form {
-                Section("外观") {
-                    Picker("外观", selection: model.binding(\.theme)) {
-                        ForEach(MenuTheme.allCases) { Text($0.label).tag($0) }
-                    }
-                    Text("默认使用白底镂空文字，文字处透出菜单栏底色。窗口外观可跟随系统，或选择浅色和深色。")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
-                }
                 Section("菜单栏颜色") {
-                    Toggle("镂空文字", isOn: model.binding(\.cutoutText))
+                    Text("默认使用与应用图标一致的石墨灰底色和浅色文字。")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
                     Toggle("自定义菜单栏颜色", isOn: model.binding(\.customColors))
                     if model.preferences.customColors {
                         ColorPicker("底色", selection: model.colorBinding(\.backgroundHex), supportsOpacity: false)
                         ColorPicker("文字颜色", selection: model.colorBinding(\.textHex), supportsOpacity: false)
-                            .disabled(model.preferences.cutoutText)
                         valueSlider("底色不透明度", value: Binding(get: { model.preferences.backgroundOpacity * 100 }, set: {
                             model.binding(\.backgroundOpacity).wrappedValue = $0 / 100
                         }), range: 0...100, step: 5, suffix: "%")
                         Text("仅调整菜单栏条目，状态光环保留黄、红、绿三色。")
                             .font(.system(size: 11)).foregroundStyle(.secondary)
+                        Text("底色不透明度保持 100% 时，文字更清楚。")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
                     }
-                    Text(model.preferences.cutoutText ? "文字为透明镂空；关闭后可设置实色文字。" : "实色文字随所选外观调整，也可开启自定义颜色。")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)
@@ -328,7 +302,7 @@ final class SettingsWindowController: NSWindowController {
 
     func show(preferences: MenuPreferences, onChange: @escaping (MenuPreferences) -> Void) {
         model.replace(preferences, notify: false)
-        window?.appearance = preferences.theme.appearance
+        window?.appearance = MenuPalette.appearance
         model.onChange = onChange
         login.refresh()
         NSApp.activate(ignoringOtherApps: true)
