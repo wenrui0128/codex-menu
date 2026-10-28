@@ -1,5 +1,7 @@
 # Codex Menu
 
+<img src="CodexMenu/Resources/AppIcon.png" width="88" height="88" alt="Codex Menu 应用图标">
+
 在 macOS 菜单栏用**独立图标**查看多个本机 Codex 会话的公开进度。原生 Swift / AppKit / SwiftUI 实现，无第三方运行时依赖，无需 API Key。
 
 ![Codex Menu 界面示意，使用示例会话](CodexMenu/preview.png)
@@ -36,7 +38,7 @@ bash /tmp/codex-menu-install.sh --download-only "$HOME/Downloads/CodexMenu"
 指定版本或安装位置：
 
 ```sh
-bash /tmp/codex-menu-install.sh --version v0.5.2 --dir "$HOME/Applications"
+bash /tmp/codex-menu-install.sh --version v0.5.3 --dir "$HOME/Applications"
 ```
 
 也可以从 Releases 手动下载 ZIP，解压后移动到 Applications。应用使用 **ad-hoc 本地签名，尚未经过 Apple 公证**。浏览器下载的应用若被 macOS 拦截，可在“系统设置 → 隐私与安全性”中批准打开；安装器不会全局关闭 Gatekeeper。
@@ -68,7 +70,7 @@ zsh scripts/release.sh
 bash scripts/test-installer.sh
 ```
 
-发布文件位于 `CodexMenu/release/v0.5.2/`，与日常构建目录分开。安装器测试只向临时目录下载，不安装或启动应用。
+发布文件位于 `CodexMenu/release/v0.5.3/`，与日常构建目录分开。安装器测试只向临时目录下载，不安装或启动应用。
 
 原生交互和数据读取测试：
 

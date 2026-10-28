@@ -1,9 +1,19 @@
+v0.5.3 加入了新的应用图标，支持标准与 Retina 分辨率，并接入源码构建和 Universal 2 发布流程。
+
 原生 macOS 菜单栏工具，用独立图标显示多个本机 Codex 会话的公开进度。
 
 - 每个会话一个原生图标，左键打开会话，右键预览公开进度。
 - 运行中黄灯闪烁、错误红灯常亮、完成绿灯闪烁。
 - 保留完成会话，打开后仅收起该条；支持字号、宽度、主题和滚动设置。
 - Universal 2 安装包：Apple Silicon / Intel，macOS 13 或以上。
+
+**右键预览**
+
+右键会话条目即可查看对应会话的完整公开进度。
+
+![Codex Menu 右键预览，红框强调菜单栏与对应进度卡片](https://github.com/wenrui0128/codex-menu/releases/download/v0.5.2/CodexMenu-right-click-preview.png)
+
+[下载高清原图（3200 × 2000 PNG）](https://github.com/wenrui0128/codex-menu/releases/download/v0.5.2/CodexMenu-right-click-preview.png)
 
 命令行安装（默认 `~/Applications`，无需 sudo，需自行设置自动启动）：
 

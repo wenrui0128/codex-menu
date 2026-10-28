@@ -49,6 +49,8 @@ zsh scripts/build.sh
 
 输出 `dist/Codex Menu.app`。构建缓存写入项目内的 `.build`。
 
+应用图标使用 `Resources/AppIcon.png` 的 1024 × 1024 原图。构建时会自动生成包含标准与 Retina 尺寸的 `AppIcon.icns`，写入应用包的 `Contents/Resources`，并由 `Info.plist` 引用；Universal 2 发布包使用同一流程。修改原图后重新构建即可更新图标，无需另装图像处理依赖。
+
 ```sh
 env CLANG_MODULE_CACHE_PATH="$PWD/.build/clang-module-cache" \
   swift test --disable-sandbox --cache-path .build/cache \

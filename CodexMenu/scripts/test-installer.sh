@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in --output) output="$2"; shift 2 ;; *) url="$1"; shift ;; esac
 done
 case "$url" in
-    */releases/latest) printf '{"tag_name":"v0.5.2"}' > "$output" ;;
+    */releases/latest) printf '{"tag_name":"%s"}' "$TEST_RELEASE_TAG" > "$output" ;;
     */CodexMenu-macos-universal.zip)
         cp "$TEST_RELEASE_DIR/CodexMenu-macos-universal.zip" "$output"
         if [[ "${TEST_TAMPER:-0}" == 1 ]]; then printf 'tampered' >> "$output"; fi ;;
@@ -24,7 +24,7 @@ case "$url" in
 esac
 MOCK
 chmod +x "$test_dir/bin/curl"
-export PATH="$test_dir/bin:$PATH" TEST_RELEASE_DIR="$release_dir"
+export PATH="$test_dir/bin:$PATH" TEST_RELEASE_DIR="$release_dir" TEST_RELEASE_TAG="v$(cat "$project_dir/VERSION")"
 bash -n "$installer"
 bash "$installer" --dir "$test_dir/must-not-install" --download-only "$test_dir/downloaded"
 cmp "$release_dir/CodexMenu-macos-universal.zip" "$test_dir/downloaded/CodexMenu-macos-universal.zip"

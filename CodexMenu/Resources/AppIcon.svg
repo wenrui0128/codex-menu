@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <title>Codex Menu</title>
+  <desc>Three independent session cards and coral, amber, and mint status lamps on a softly lit graphite tile.</desc>
+  <defs>
+    <linearGradient id="tile" x1="230" y1="96" x2="800" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#747C89"/>
+      <stop offset=".47" stop-color="#535B68"/>
+      <stop offset="1" stop-color="#3C434E"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="512" y1="96" x2="512" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity=".38"/>
+      <stop offset=".45" stop-color="white" stop-opacity=".08"/>
+      <stop offset="1" stop-color="white" stop-opacity=".13"/>
+    </linearGradient>
+    <linearGradient id="card" x1="512" y1="0" x2="512" y2="124" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#737C89"/>
+      <stop offset="1" stop-color="#626C79"/>
+    </linearGradient>
+    <linearGradient id="cardEdge" x1="512" y1="0" x2="512" y2="124" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity=".28"/>
+      <stop offset="1" stop-color="white" stop-opacity=".04"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="370" y1="0" x2="752" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F8FA"/>
+      <stop offset="1" stop-color="#E0E5EB"/>
+    </linearGradient>
+    <radialGradient id="coral" cx=".34" cy=".26" r=".8">
+      <stop stop-color="#FFCDD0"/>
+      <stop offset=".5" stop-color="#F58287"/>
+      <stop offset="1" stop-color="#DD646F"/>
+    </radialGradient>
+    <radialGradient id="amber" cx=".34" cy=".26" r=".8">
+      <stop stop-color="#FFF1BA"/>
+      <stop offset=".5" stop-color="#F5C451"/>
+      <stop offset="1" stop-color="#DEA12D"/>
+    </radialGradient>
+    <radialGradient id="mint" cx=".34" cy=".26" r=".8">
+      <stop stop-color="#CEF6E3"/>
+      <stop offset=".5" stop-color="#6ED6A1"/>
+      <stop offset="1" stop-color="#45B780"/>
+    </radialGradient>
+    <filter id="tileShadow" x="0" y="0" width="1024" height="1024" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#111B2B" flood-opacity=".23"/>
+    </filter>
+    <filter id="cardShadow" x="-70" y="-50" width="716" height="244" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="13" stdDeviation="13" flood-color="#1D2634" flood-opacity=".26"/>
+    </filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="15"/>
+    </filter>
+  </defs>
+  <g filter="url(#tileShadow)">
+    <rect x="96" y="96" width="832" height="832" rx="184" fill="url(#tile)"/>
+    <rect x="98" y="98" width="828" height="828" rx="182" stroke="url(#edge)" stroke-width="4"/>
+  </g>
+  <g transform="translate(224 286)">
+    <rect width="576" height="124" rx="36" fill="url(#card)" filter="url(#cardShadow)"/>
+    <rect x="1" y="1" width="574" height="122" rx="35" stroke="url(#cardEdge)" stroke-width="2"/>
+    <circle cx="70" cy="62" r="34" fill="#F58287" opacity=".28" filter="url(#glow)"/>
+    <circle cx="70" cy="62" r="31" fill="url(#coral)"/>
+    <circle cx="70" cy="62" r="30" stroke="white" stroke-opacity=".23" stroke-width="2"/>
+    <path d="M152 62H458" stroke="url(#ink)" stroke-width="32" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(224 450)">
+    <rect width="576" height="124" rx="36" fill="url(#card)" filter="url(#cardShadow)"/>
+    <rect x="1" y="1" width="574" height="122" rx="35" stroke="url(#cardEdge)" stroke-width="2"/>
+    <circle cx="70" cy="62" r="36" fill="#F5C451" opacity=".43" filter="url(#glow)"/>
+    <circle cx="70" cy="62" r="31" fill="url(#amber)"/>
+    <circle cx="70" cy="62" r="30" stroke="white" stroke-opacity=".28" stroke-width="2"/>
+    <path d="M152 62H364" stroke="url(#ink)" stroke-width="32" stroke-linecap="round"/>
+    <path d="M416 62H494" stroke="#F5C451" stroke-opacity=".7" stroke-width="32" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(224 614)">
+    <rect width="576" height="124" rx="36" fill="url(#card)" filter="url(#cardShadow)"/>
+    <rect x="1" y="1" width="574" height="122" rx="35" stroke="url(#cardEdge)" stroke-width="2"/>
+    <circle cx="70" cy="62" r="34" fill="#6ED6A1" opacity=".32" filter="url(#glow)"/>
+    <circle cx="70" cy="62" r="31" fill="url(#mint)"/>
+    <circle cx="70" cy="62" r="30" stroke="white" stroke-opacity=".25" stroke-width="2"/>
+    <path d="M152 62H422" stroke="url(#ink)" stroke-width="32" stroke-linecap="round"/>
+  </g>
+</svg>

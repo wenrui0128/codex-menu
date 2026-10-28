@@ -27,6 +27,8 @@ mkdir -p "$output_dir"
 output_dir="$(cd "$output_dir" && pwd)"
 
 app_dir="$output_dir/Codex Menu.app"
+icon_path="$project_dir/.build/app-icon/AppIcon.icns"
+zsh scripts/build-icon.sh "$icon_path"
 mkdir -p "$app_dir/Contents/MacOS"
 common_args=(--disable-sandbox --cache-path "$project_dir/.build/cache"
     --config-path "$project_dir/.build/config" --security-path "$project_dir/.build/security"
@@ -58,6 +60,7 @@ cat > "$app_dir/Contents/Info.plist" <<PLIST
     <key>CFBundleDisplayName</key><string>Codex Menu</string>
     <key>CFBundleIdentifier</key><string>local.tao.codex-menu</string>
     <key>CFBundleExecutable</key><string>CodexMenu</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$version</string>
     <key>CFBundleVersion</key><string>$build_number</string>
@@ -69,6 +72,7 @@ cat > "$app_dir/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 mkdir -p "$app_dir/Contents/Resources"
+cp "$icon_path" "$app_dir/Contents/Resources/AppIcon.icns"
 cp THIRD_PARTY_NOTICES.md "$app_dir/Contents/Resources/THIRD_PARTY_NOTICES.md"
 cp ../LICENSE "$app_dir/Contents/Resources/LICENSE"
 codesign --force --sign - "$app_dir"
