@@ -20,7 +20,7 @@ func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false,
         canvas.addSubview(field)
     }
     label("Codex Menu", x: 32, y: 560, size: 26, weight: .semibold)
-    label("独立会话图标 · 透明底色 · 环绕状态光", x: 32, y: 532, size: 14, secondary: true)
+    label("独立会话图标 · 白底镂空字 · 环绕状态光", x: 32, y: 532, size: 14, secondary: true)
     var preferences = MenuPreferences()
     preferences.theme = theme
     preferences.customColors = customColors

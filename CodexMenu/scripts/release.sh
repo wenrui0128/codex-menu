@@ -13,9 +13,11 @@ ditto -c -k --keepParent --norsrc --noextattr --noqtn "$app_dir" "$release_dir/$
 cp ../install.sh "$release_dir/install.sh"
 cp ../LICENSE "$release_dir/LICENSE"
 cp THIRD_PARTY_NOTICES.md "$release_dir/THIRD_PARTY_NOTICES.md"
+cp Assets/usage-preview.png "$release_dir/CodexMenu-right-click-preview.png"
 (
     cd "$release_dir"
-    shasum -a 256 "$asset" install.sh LICENSE THIRD_PARTY_NOTICES.md > SHA256SUMS
+    shasum -a 256 "$asset" install.sh LICENSE THIRD_PARTY_NOTICES.md \
+        CodexMenu-right-click-preview.png > SHA256SUMS
     shasum -a 256 -c SHA256SUMS
 )
 print "发布附件：$release_dir"

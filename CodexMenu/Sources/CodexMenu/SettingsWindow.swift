@@ -197,7 +197,8 @@ struct MenuSettingsView: View {
                 Spacer(minLength: 0)
             }
             .frame(height: 44)
-            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+            .background(model.preferences.cutoutText ? Color(nsColor: MenuPalette.color(0x52615D)) : Color.primary.opacity(0.05),
+                        in: RoundedRectangle(cornerRadius: 8))
         }
         .padding(.horizontal, 16).padding(.top, 16)
     }
@@ -234,20 +235,24 @@ struct MenuSettingsView: View {
                     Picker("外观", selection: model.binding(\.theme)) {
                         ForEach(MenuTheme.allCases) { Text($0.label).tag($0) }
                     }
-                    Text("跟随系统时使用透明底色，文字随菜单栏明暗调整；浅色和深色使用对应底色。")
+                    Text("默认使用白底镂空文字，文字处透出菜单栏底色。窗口外观可跟随系统，或选择浅色和深色。")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Section("菜单栏颜色") {
+                    Toggle("镂空文字", isOn: model.binding(\.cutoutText))
                     Toggle("自定义菜单栏颜色", isOn: model.binding(\.customColors))
                     if model.preferences.customColors {
                         ColorPicker("底色", selection: model.colorBinding(\.backgroundHex), supportsOpacity: false)
                         ColorPicker("文字颜色", selection: model.colorBinding(\.textHex), supportsOpacity: false)
+                            .disabled(model.preferences.cutoutText)
                         valueSlider("底色不透明度", value: Binding(get: { model.preferences.backgroundOpacity * 100 }, set: {
                             model.binding(\.backgroundOpacity).wrappedValue = $0 / 100
                         }), range: 0...100, step: 5, suffix: "%")
                         Text("仅调整菜单栏条目，状态光环保留黄、红、绿三色。")
                             .font(.system(size: 11)).foregroundStyle(.secondary)
                     }
+                    Text(model.preferences.cutoutText ? "文字为透明镂空；关闭后可设置实色文字。" : "实色文字随所选外观调整，也可开启自定义颜色。")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)

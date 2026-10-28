@@ -2,11 +2,17 @@ name: Build macOS release
 
 on:
   push:
+    branches: ['main']
     tags: ['v*']
+    paths: ['.github/release-request']
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: codex-menu-release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -16,14 +22,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check version
+        id: release
         working-directory: CodexMenu
         env:
           RELEASE_TAG: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
+          VERSION_TAG="v$(cat VERSION)"
           if [[ "$EVENT_NAME" == push ]]; then
-            test "$RELEASE_TAG" = "v$(cat VERSION)"
+            if [[ "$REF_TYPE" == tag ]]; then
+              test "$RELEASE_TAG" = "$VERSION_TAG"
+            else
+              test "$(cat ../.github/release-request)" = "$VERSION_TAG"
+            fi
           fi
+          echo "tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
       - name: Build universal app and checksums
         working-directory: CodexMenu
         run: zsh scripts/release.sh
@@ -39,11 +53,13 @@ jobs:
             CodexMenu/release/v*/install.sh
             CodexMenu/release/v*/LICENSE
             CodexMenu/release/v*/THIRD_PARTY_NOTICES.md
+            CodexMenu/release/v*/*.png
       - name: Publish release
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_SHA: ${{ github.sha }}
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release already exists; verified build remains available as a workflow artifact."
@@ -51,10 +67,12 @@ jobs:
           fi
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
+            --target "$RELEASE_SHA" \
             --title "Codex Menu $RELEASE_TAG" \
             --notes-file .github/RELEASE_NOTES.md \
             "CodexMenu/release/$RELEASE_TAG/CodexMenu-macos-universal.zip" \
             "CodexMenu/release/$RELEASE_TAG/SHA256SUMS" \
             "CodexMenu/release/$RELEASE_TAG/install.sh" \
             "CodexMenu/release/$RELEASE_TAG/LICENSE" \
-            "CodexMenu/release/$RELEASE_TAG/THIRD_PARTY_NOTICES.md"
+            "CodexMenu/release/$RELEASE_TAG/THIRD_PARTY_NOTICES.md" \
+            "CodexMenu/release/$RELEASE_TAG/"*.png

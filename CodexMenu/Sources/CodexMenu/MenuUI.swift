@@ -17,6 +17,8 @@ final class SessionBadgeView: NSView {
         lamp = StatusLampView(status: session.status)
         statusOutline = StatusOutlineView(status: session.status)
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        wantsLayer = true
+        layer?.isOpaque = false
         setAccessibilityElement(false)
         addSubview(lamp)
         addSubview(statusOutline)
@@ -31,7 +33,7 @@ final class SessionBadgeView: NSView {
         self.preferences = next
         // NSStatusBarButton inherits a system-owned window appearance. Apply
         // the selected theme directly to our view instead of only to NSApp.
-        appearance = next.theme.appearance
+        appearance = next.cutoutText && !next.customColors ? NSAppearance(named: .aqua) : next.theme.appearance
         scrolling = next.scrolling
         refreshStatusFeedback()
         needsDisplay = true
@@ -78,15 +80,21 @@ final class SessionBadgeView: NSView {
 
     override func layout() {
         super.layout()
-        lamp.frame = NSRect(x: 9, y: bounds.midY - 6, width: 12, height: 12)
+        lamp.frame = NSRect(x: 6, y: bounds.midY - 6, width: 12, height: 12)
         statusOutline.frame = bounds
     }
 
     private var textFont: NSFont { .systemFont(ofSize: preferences.menuFontSize) }
-    private var titleWidth: CGFloat { min(120, max(58, bounds.width * 0.29)) * CGFloat(preferences.menuFontSize / 11) }
+    private var titleFont: NSFont { .systemFont(ofSize: preferences.menuFontSize, weight: .medium) }
+    var titleFrame: NSRect {
+        let size = NSAttributedString(string: session.title, attributes: [.font: titleFont]).size()
+        let limit = min(120 * CGFloat(preferences.menuFontSize / 11), bounds.width * 0.43)
+        return NSRect(x: 23, y: bounds.midY - size.height / 2,
+                      width: min(ceil(size.width), limit), height: size.height)
+    }
     var progressFrame: NSRect {
-        let x = preferences.showTitle ? 47 + min(titleWidth, bounds.width * 0.43) : 27
-        return NSRect(x: x, y: 2, width: max(10, bounds.width - x - 12), height: bounds.height - 4)
+        let x = preferences.showTitle ? titleFrame.maxX + 12 : 23
+        return NSRect(x: x, y: 2, width: max(10, bounds.width - x - 8), height: bounds.height - 4)
     }
 
     var shouldAnimate: Bool {
@@ -99,11 +107,16 @@ final class SessionBadgeView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let colors = MenuPalette.badgeColors(preferences: preferences, appearance: effectiveAppearance)
         let background = colors.background
-        let foreground = colors.foreground
-        let secondary = colors.secondary
+        let foreground: NSColor = colors.cutoutText ? .black : colors.foreground
+        let secondary: NSColor = colors.cutoutText ? .black : colors.secondary
         let capsule = bounds.insetBy(dx: 1.5, dy: 2)
         let highlighted = (superview as? NSButton)?.isHighlighted ?? false
         let fill = hovered || highlighted ? background.blended(withFraction: 0.07, of: foreground)! : background
+        // Isolate the capsule before subtracting glyphs. The holes reveal the
+        // real menu-bar material without erasing the native button behind it.
+        NSGraphicsContext.saveGraphicsState()
+        let context = NSGraphicsContext.current!.cgContext
+        context.beginTransparencyLayer(auxiliaryInfo: nil)
         fill.setFill()
         let outline = NSBezierPath(roundedRect: capsule, xRadius: 6, yRadius: 6)
         outline.fill()
@@ -111,20 +124,21 @@ final class SessionBadgeView: NSView {
         outline.lineWidth = 0.5
         outline.stroke()
 
+        if colors.cutoutText { context.setBlendMode(.destinationOut) }
+
         let titleStyle = NSMutableParagraphStyle()
         titleStyle.lineBreakMode = .byTruncatingTail
         titleStyle.alignment = .left
         let centerY = bounds.midY
         let titleText = NSAttributedString(string: session.title, attributes: [
-            .font: NSFont.systemFont(ofSize: preferences.menuFontSize, weight: .medium), .foregroundColor: foreground,
+            .font: titleFont, .foregroundColor: foreground,
             .paragraphStyle: titleStyle
         ])
         let clip = progressFrame
         if preferences.showTitle {
-            titleText.draw(in: NSRect(x: 27, y: centerY - titleText.size().height / 2,
-                                     width: clip.minX - 47, height: titleText.size().height))
-            colors.border.setFill()
-            NSRect(x: clip.minX - 10, y: centerY - 4, width: 0.5, height: 8).fill()
+            titleText.draw(in: titleFrame)
+            (colors.cutoutText ? NSColor.black : colors.border).setFill()
+            NSRect(x: clip.minX - 6, y: centerY - 4, width: 0.5, height: 8).fill()
         }
         let text = NSAttributedString(string: session.displayText, attributes: [
             .font: textFont, .foregroundColor: secondary, .paragraphStyle: titleStyle
@@ -141,13 +155,16 @@ final class SessionBadgeView: NSView {
         clip.clip()
         if shouldAnimate {
             text.draw(at: NSPoint(x: clip.minX - offset, y: centerY - text.size().height / 2))
-            if textWidth - offset > clip.width {
+            if !colors.cutoutText && textWidth - offset > clip.width {
                 NSGradient(starting: fill.withAlphaComponent(0), ending: fill)?.draw(
                     in: NSRect(x: clip.maxX - 9, y: clip.minY, width: 9, height: clip.height), angle: 0)
             }
         } else {
             text.draw(in: NSRect(x: clip.minX, y: centerY - text.size().height / 2, width: clip.width, height: text.size().height))
         }
+        NSGraphicsContext.restoreGraphicsState()
+        context.setBlendMode(.normal)
+        context.endTransparencyLayer()
         NSGraphicsContext.restoreGraphicsState()
         if superview is NSButton, window?.firstResponder === superview {
             NSGraphicsContext.saveGraphicsState()

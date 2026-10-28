@@ -90,8 +90,8 @@ final class SessionMenuItem {
 }
 
 struct StatusItemLayout {
-    static let controlWidth: CGFloat = 28
-    static let spacing: CGFloat = 8
+    static let controlWidth: CGFloat = 24
+    static let spacing: CGFloat = 4
     static let controlFont = NSFont.systemFont(ofSize: 10, weight: .medium)
     let cardWidth: CGFloat
     let visibleCount: Int

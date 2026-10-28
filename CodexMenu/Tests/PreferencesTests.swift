@@ -15,6 +15,7 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(state.preferences.menuFontSize, 11)
         XCTAssertEqual(state.preferences.detailFontSize, 13)
         XCTAssertTrue(state.preferences.animateLamps)
+        XCTAssertTrue(state.preferences.cutoutText)
         XCTAssertNil(state.sessions["one"]?.startedAt)
         let restored = try JSONDecoder().decode(SavedState.self, from: JSONEncoder().encode(state))
         XCTAssertEqual(restored.preferences, state.preferences)
@@ -124,6 +125,7 @@ final class PreferencesTests: XCTestCase {
         let badge = SessionBadgeView(session: exampleSessions()[0], width: 240, height: 28)
         host.addSubview(badge)
         var preferences = MenuPreferences()
+        preferences.cutoutText = false
         preferences.theme = .light
         badge.apply(preferences)
         XCTAssertEqual(badge.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]), .aqua,
@@ -140,12 +142,14 @@ final class PreferencesTests: XCTestCase {
 
     func testCustomColorsAndOpacityPersistAndApplyIndependentlyOfWindowTheme() throws {
         let model = PreferencesModel(MenuPreferences())
+        model.binding(\.cutoutText).wrappedValue = false
         model.binding(\.customColors).wrappedValue = true
         model.colorBinding(\.backgroundHex).wrappedValue = Color(nsColor: MenuPalette.color(0xE8F1FF))
         model.colorBinding(\.textHex).wrappedValue = Color(nsColor: MenuPalette.color(0x173D63))
         model.binding(\.backgroundOpacity).wrappedValue = 0.4
         let saved = try JSONDecoder().decode(MenuPreferences.self, from: JSONEncoder().encode(model.preferences))
         XCTAssertEqual(saved, model.preferences)
+        XCTAssertFalse(saved.cutoutText)
         XCTAssertEqual(saved.backgroundHex, 0xE8F1FF)
         XCTAssertEqual(saved.textHex, 0x173D63)
         let colors = MenuPalette.badgeColors(preferences: saved, appearance: NSAppearance(named: .darkAqua)!)
@@ -156,6 +160,46 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(invalid.normalized.backgroundOpacity, 0.85)
         invalid.backgroundOpacity = -1
         XCTAssertEqual(invalid.normalized.backgroundOpacity, 0)
+    }
+
+    func testDefaultWhiteCapsuleActuallyCutsTransparentGlyphsIntoItsFill() throws {
+        _ = NSApplication.shared
+        let session = Session(id: "cutout", turnID: "turn", title: "MMMM", status: .running,
+                              summary: "MMMMMMMM", updatedAt: Date())
+        let badge = SessionBadgeView(session: session, width: 240, height: 28)
+        var preferences = MenuPreferences()
+        preferences.menuFontSize = 15
+        preferences.scrolling = false
+        badge.apply(preferences)
+        let colors = MenuPalette.badgeColors(preferences: preferences, appearance: NSAppearance(named: .darkAqua)!)
+        XCTAssertTrue(colors.cutoutText)
+        XCTAssertEqual(try XCTUnwrap(colors.background.usingColorSpace(.sRGB)).redComponent, 1)
+        XCTAssertGreaterThan(colors.background.alphaComponent, 0.9)
+
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 480, pixelsHigh: 56,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let graphics = try XCTUnwrap(NSGraphicsContext(bitmapImageRep: bitmap))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = graphics
+        graphics.cgContext.clear(CGRect(x: 0, y: 0, width: 480, height: 56))
+        graphics.cgContext.scaleBy(x: 2, y: 2)
+        badge.draw(badge.bounds)
+        NSGraphicsContext.restoreGraphicsState()
+
+        // Sample only the title's interior, excluding the capsule's transparent
+        // margins, outline, status lamp and divider.
+        var holes = 0
+        var body = 0
+        for y in 16..<40 {
+            for x in 58..<170 {
+                let alpha = try XCTUnwrap(bitmap.colorAt(x: x, y: y)).alphaComponent
+                if alpha < 0.05 { holes += 1 }
+                if alpha > 0.9 { body += 1 }
+            }
+        }
+        XCTAssertGreaterThan(holes, 50, "Glyphs must remove alpha, not just be painted in a matching color")
+        XCTAssertGreaterThan(body, 50, "White fill must remain between the glyphs")
     }
 
     func testWholeSessionOutlineBreathesWithoutScrollingAndStopsForErrors() {
@@ -175,5 +219,27 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(outline.status, .unknown)
         XCTAssertFalse(outline.isPulsing)
         XCTAssertNil(outline.hitTest(.zero), "The outline must not intercept clicks or right-clicks")
+    }
+
+    func testShortTitlesLeaveOnlyTheDividerGapBeforeScrollingProgress() {
+        _ = NSApplication.shared
+        var sample = exampleSessions()[0]
+        sample.title = "测试"
+        let badge = SessionBadgeView(session: sample, width: 480, height: 28)
+        var preferences = MenuPreferences()
+        preferences.menuFontSize = 15
+        badge.apply(preferences)
+        let measured = ceil(NSAttributedString(string: sample.title,
+            attributes: [.font: NSFont.systemFont(ofSize: 15, weight: .medium)]).size().width)
+        XCTAssertEqual(badge.titleFrame.width, measured)
+        XCTAssertEqual(badge.progressFrame.minX - badge.titleFrame.maxX, 12)
+        let shortStart = badge.progressFrame.minX
+        sample.title = String(repeating: "较长标题", count: 8)
+        badge.update(sample)
+        XCTAssertGreaterThan(badge.progressFrame.minX, shortStart)
+        XCTAssertGreaterThan(badge.progressFrame.width, 200)
+        preferences.showTitle = false
+        badge.apply(preferences)
+        XCTAssertEqual(badge.progressFrame.minX, 23)
     }
 }

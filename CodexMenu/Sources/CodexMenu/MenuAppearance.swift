@@ -7,6 +7,7 @@ enum MenuPalette {
         let foreground: NSColor
         let secondary: NSColor
         let border: NSColor
+        let cutoutText: Bool
     }
 
     static func color(_ hex: UInt32) -> NSColor {
@@ -33,12 +34,18 @@ enum MenuPalette {
         if preferences.customColors {
             let text = color(preferences.textHex)
             return BadgeColors(background: color(preferences.backgroundHex).withAlphaComponent(preferences.backgroundOpacity),
-                               foreground: text, secondary: text, border: text.withAlphaComponent(0.14))
+                               foreground: text, secondary: text, border: text.withAlphaComponent(0.14),
+                               cutoutText: preferences.cutoutText)
+        }
+        if preferences.cutoutText {
+            return BadgeColors(background: NSColor.white.withAlphaComponent(0.94),
+                               foreground: .black, secondary: .black,
+                               border: NSColor.black.withAlphaComponent(0.08), cutoutText: true)
         }
         // Follow the actual menu bar material, including wallpaper-dependent contrast.
         let background: NSColor = preferences.theme == .system ? .clear : surface(dark: dark).withAlphaComponent(0.94)
         return BadgeColors(background: background, foreground: foreground(dark: dark),
-                           secondary: secondary(dark: dark), border: border(dark: dark))
+                           secondary: secondary(dark: dark), border: border(dark: dark), cutoutText: false)
     }
 
     static func lamp(for status: SessionStatus, dark: Bool) -> NSColor {
