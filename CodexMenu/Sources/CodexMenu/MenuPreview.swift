@@ -27,6 +27,9 @@ func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false) thr
     bar.layer?.cornerRadius = 10
     bar.layer?.backgroundColor = MenuPalette.color(dark ? 0x34383F : 0xE1E5EB).cgColor
     canvas.addSubview(bar)
+    let entry = NSImageView(frame: NSRect(x: 8, y: 11, width: 20, height: 20))
+    entry.image = AppArtwork.controlIcon(hasReadError: false)
+    bar.addSubview(entry)
     var samples = exampleSessions()
     samples[2].status = .failed
     samples[2].summary = "读取文件时发生错误，进入会话查看详情。"
@@ -34,9 +37,9 @@ func renderMenuPreview(to path: String, dark: Bool, largeFont: Bool = false) thr
     previewPreferences.scrolling = false
     previewPreferences.animateLamps = false
     for (index, session) in samples.enumerated() {
-        let badge = SessionBadgeView(session: session, width: 318, height: 28)
+        let badge = SessionBadgeView(session: session, width: 310, height: 28)
         badge.apply(previewPreferences)
-        badge.frame.origin = NSPoint(x: 6 + CGFloat(index) * 326, y: 7)
+        badge.frame.origin = NSPoint(x: 38 + CGFloat(index) * 318, y: 7)
         bar.addSubview(badge)
     }
     if !largeFont {

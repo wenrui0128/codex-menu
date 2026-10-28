@@ -143,7 +143,7 @@ final class StatusItems {
             return item
         }
         control.button.title = hiddenCount > 0 ? "+\(hiddenCount)" : ""
-        control.button.image = NSImage(systemSymbolName: readError == nil ? "rectangle.3.group" : "exclamationmark.triangle", accessibilityDescription: nil)
+        control.button.image = AppArtwork.controlIcon(hasReadError: readError != nil)
         control.button.toolTip = readError.map { "数据读取失败：\($0)\n点击查看详情" }
             ?? "\(sessions.count + hiddenCount) 个保留的会话\n左键或右键查看全部会话和设置\n按住 ⌘ 拖动可调整各个图标的位置"
     }

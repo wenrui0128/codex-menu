@@ -87,10 +87,20 @@ struct MenuSettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 23, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
+                Group {
+                    if let icon = AppArtwork.icon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .interpolation(.high)
+                            .scaledToFit()
+                    } else {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 23, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 40, height: 40)
+                .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Codex Menu 设置").font(.system(size: 18, weight: .semibold))
                     Text("调整后即时生效，并在下次启动时保留。")
